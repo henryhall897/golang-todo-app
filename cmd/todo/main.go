@@ -4,14 +4,14 @@ package main
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"golang-todo-app/pkg/logging"
+	"golang-todo-app/internal/core/logging"
 
 	"github.com/joho/godotenv"
+	"go.uber.org/zap"
 
 	envconfig "github.com/sethvargo/go-envconfig"
 )
@@ -31,7 +31,7 @@ type Config struct {
 func (cfg *Config) Log(ctx context.Context) {
 	logger := logging.GetLogger(ctx)
 
-	logger.Infow(ctx, "Configuration")
+	logger.Infow("Configuration")
 	// "database", cfg.Database,
 	// "server", cfg.Server)
 }
@@ -47,12 +47,12 @@ func main() {
 
 	ctx, done := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 
-	logger := logging.InitializeLogger("debug", false)
+	logger := logging.InitializeLogger("debug", false).Sugar()
 
 	defer func() {
 		done()
 		if r := recover(); r != nil {
-			logger.ErrorContext(ctx, "application panic", "panic", r)
+			logger.Errorw("application panic", "panic", r)
 			os.Exit(1)
 		}
 	}()
@@ -67,16 +67,16 @@ func main() {
 	logger.Info("successful shutdown")
 }
 
-func run(ctx context.Context, logger *slog.Logger) error {
+func run(ctx context.Context, logger *zap.SugaredLogger) error {
 
-	logger.Debug("Read in Configuration",
+	logger.Debugw("Read in Configuration",
 		"version", version,
 		"buildDate", buildDate)
 	cfg := Config{}
 	if err := Setup(ctx, &cfg); err != nil {
 		return fmt.Errorf("failed to read the configuration from the environment: %w", err)
 	}
-	logger.Info("go-crud-example", "config", cfg)
+	logger.Infow("go-crud-example", "config", cfg)
 
 	// logger.Debug("Open Database")
 	// pool, err := dbpool.New(ctx, logger, &cfg.Database)
@@ -87,8 +87,9 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	// h := handler.BuildHandler(ctx, logger, models.NewDBStore(pool))
 	// srv := server.NewHTTPServer(logger, &cfg.Server)
 	// return srv.Serve(ctx, h)
+	return nil
 }
 
-func Setup(ctx context.Context, config interface{}) error {
-	return envconfig.ProcessWith(ctx, config, envconfig.OsLookuper())
+func Setup(ctx context.Context, config any) error {
+	return envconfig.Process(ctx, config)
 }

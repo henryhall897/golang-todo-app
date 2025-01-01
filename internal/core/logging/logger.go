@@ -64,10 +64,10 @@ func WithLogger(ctx context.Context, logger *zap.Logger) context.Context {
 }
 
 // GetLogger retrieves the logger from the context. If no logger is found, it returns the default logger.
-func GetLogger(ctx context.Context) *zap.Logger {
-	logger, ok := ctx.Value(loggerKey).(*zap.Logger)
+func GetLogger(ctx context.Context) *zap.SugaredLogger {
+	logger, ok := ctx.Value(loggerKey).(*zap.SugaredLogger)
 	if !ok {
-		return GetDefaultLogger()
+		return GetDefaultLogger().Sugar()
 	}
 	return logger
 }
