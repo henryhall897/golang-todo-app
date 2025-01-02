@@ -23,7 +23,7 @@ SET name = $2, email = $3, updated_at = CURRENT_TIMESTAMP
 WHERE id = $1;
 
 -- Delete a user by ID
--- name: DeleteUser :exec
+-- name: DeleteUser :execrows
 DELETE FROM users
 WHERE id = $1;
 

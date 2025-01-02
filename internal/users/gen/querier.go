@@ -14,7 +14,7 @@ type Querier interface {
 	// Create a new user
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	// Delete a user by ID
-	DeleteUser(ctx context.Context, id pgtype.UUID) error
+	DeleteUser(ctx context.Context, id pgtype.UUID) (int64, error)
 	// Retrieve a user by email
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	// Retrieve a user by ID

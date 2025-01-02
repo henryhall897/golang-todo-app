@@ -1,6 +1,9 @@
 //go:build mage
 // +build mage
 
+// Magefile contains the build, dependency management, and utility tasks for the project.
+// Run `mage` to list available targets.
+
 package main
 
 import (
@@ -20,6 +23,10 @@ func Build() error {
 	mg.Deps(Deps)
 	fmt.Println("Building...")
 
+	if _, err := os.Stat("bin"); os.IsNotExist(err) {
+		os.Mkdir("bin", 0755)
+	}
+
 	return sh.Run("go", "build", "-o", "bin/todo", "./cmd/todo")
 }
 
@@ -28,7 +35,7 @@ func Deps() error {
 	fmt.Println("Installing Deps...")
 	err := sh.Run("go", "mod", "tidy")
 	if err != nil {
-		fmt.Println("failed to tidy")
+		return fmt.Errorf("failed to tidy", err)
 	}
 	return sh.Run("go", "mod", "download")
 }
@@ -36,7 +43,10 @@ func Deps() error {
 // Clean up after yourself
 func Clean() {
 	fmt.Println("Cleaning...")
-	os.RemoveAll("bin/")
+	err := os.RemoveAll("bin/")
+	if err != nil && !os.IsNotExist(err) {
+		fmt.Printf("Error while cleaning: %v\n", err)
+	}
 }
 
 // Lint runs golangci-lint to analyze the project code.
@@ -47,11 +57,12 @@ func Lint() error {
 
 type Install mg.Namespace
 
-// GolangciLint installs golangci-lint.
+// GolangciLint installs golangci-lint. Install snap
 func (i Install) Linter() error {
 	fmt.Println("Ensuring golangci-lint is installed...")
 	// Check if golangci-lint is available
-	if err := sh.Run("which", "golangci-lint"); err != nil {
+	_, err := sh.Output("which", "golangci-lint")
+	if err != nil {
 		fmt.Println("golangci-lint is not installed. Installing...")
 		return sh.Run("sudo", "snap", "install", "golangci-lint", "--classic")
 	}
@@ -79,5 +90,9 @@ func (s SQLC) Users() error {
 	mg.Deps(Install.SQLC)
 
 	// Run sqlc generate for the users folder
+	if _, err := os.Stat("internal/users/sqlc.json"); os.IsNotExist(err) {
+		return fmt.Errorf("sqlc.json not found in internal/users: %w", err)
+	}
 	return sh.RunV("sqlc", "generate", "-f", "internal/users/sqlc.json")
+
 }

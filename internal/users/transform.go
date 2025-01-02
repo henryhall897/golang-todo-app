@@ -5,6 +5,7 @@ import (
 	"golang-todo-app/internal/users/gen"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 func pgToUsers(users gen.User) (User, error) {
@@ -22,5 +23,17 @@ func pgToUsers(users gen.User) (User, error) {
 		Email:     users.Email,
 		CreatedAt: users.CreatedAt.Time,
 		UpdatedAt: users.UpdatedAt.Time,
+	}, nil
+}
+
+// uuidToPgUUID converts a uuid.UUID into a pgtype.UUID
+func uuidToPgUUID(id uuid.UUID) (pgtype.UUID, error) {
+	if id == uuid.Nil {
+		return pgtype.UUID{}, fmt.Errorf("invalid UUID: UUID is nil")
+	}
+
+	return pgtype.UUID{
+		Bytes: id,
+		Valid: true,
 	}, nil
 }
