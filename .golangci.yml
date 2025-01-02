@@ -1,0 +1,64 @@
+# Configuration for golangci-lint
+run:
+  # Timeout for the entire linter run (default: 1m)
+  timeout: 2m
+
+# Exclude specific directories from linting
+issues:
+  exclude-dirs:
+    - bin
+    - vendor
+
+# List of enabled linters
+linters:
+  enable:
+    - revive          # A strict, customizable, and extensible Go linter
+    - errcheck        # Check for unchecked errors in your code
+    - govet           # Report suspicious constructs, like Printf calls with invalid arguments
+    - staticcheck     # Go static analysis
+    - gosimple        # Simplifies code where possible
+    - typecheck       # Report type errors in your code
+    - ineffassign     # Detects assignments to variables that are never used
+    - gofmt           # Checks if the code is formatted properly
+
+  # List of disabled linters
+  disable:
+    - nakedret        # Naked return in functions, which can be acceptable in small helpers
+
+# Linters settings
+linters-settings:
+  revive:
+    severity: warning
+    # Configuration file for revive linter (optional)
+    config: ""
+    rules:
+      - name: redundant-import-alias
+      - name: var-declaration
+      - name: if-return
+        severity: error
+      - name: indent-error-flow
+        arguments:
+          - "2"
+
+  gofmt:
+    # Check for import order (requires goimports)
+    simplify: true
+  errcheck:
+    # Ignore specific functions or packages for error checking
+    exclude-functions:
+      - fmt.Println
+    exclude-packages:
+      - errors
+
+# Output settings
+output:
+  # Maximum number of issues to report
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  sort-results: true
+
+# Caching
+cache:
+  # Enable cache to speed up subsequent runs
+  enabled: true
+  dir: ~/.cache/golangci-lint
