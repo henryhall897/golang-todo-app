@@ -36,6 +36,6 @@ func New(ctx context.Context, logger *zap.Logger, cfg *Config) (*pgxpool.Pool, e
 		return nil, err
 	}
 
-	logger.Info("Database connection pool created successfully")
+	logger.Debug("Database connection pool created successfully")
 	return dbpool, nil
 }

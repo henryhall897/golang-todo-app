@@ -87,8 +87,11 @@ func (s *Store) ListUsers(ctx context.Context, arg gen.ListUsersParams) ([]User,
 
 	// Execute the query to get users
 	users, err := query.ListUsers(ctx, arg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list users: %w", err)
+	if errors.Is(err, pgx.ErrNoRows) {
+		// Return an empty array if no rows are found
+		return []User{}, nil
+	} else if err != nil {
+		return []User{}, fmt.Errorf("failed to list users: %w", err)
 	}
 
 	// Convert the raw database results into the User type
@@ -96,7 +99,7 @@ func (s *Store) ListUsers(ctx context.Context, arg gen.ListUsersParams) ([]User,
 	for _, u := range users {
 		result, err := pgToUsers(u)
 		if err != nil {
-			return nil, fmt.Errorf("failed to convert user: %w", err)
+			return []User{}, fmt.Errorf("failed to convert user: %w", err)
 		}
 		results = append(results, result)
 	}

@@ -25,7 +25,7 @@ func (c Config) ConnectString() string {
 }
 
 // LogConfig logs the database configuration using Uber Zap.
-func (c Config) LogConfig(logger *zap.Logger) {
+func (c Config) LogConfig(logger *zap.SugaredLogger) {
 	logger.Info("Database Configuration",
 		zap.Bool("logging", c.Logging),
 		zap.String("host", c.Host),

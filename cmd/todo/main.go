@@ -21,12 +21,14 @@ var (
 	buildDate string
 )
 
+// TODO
 // Config project configuration
 type Config struct {
 	// Database dbpool.Config
 	// Server   server.Config
 }
 
+// TODO
 // Log prints the configuration to the log
 func (cfg *Config) Log(ctx context.Context) {
 	logger := logging.GetLogger(ctx)

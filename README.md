@@ -39,7 +39,7 @@ This golang-todo-app is a simple yet powerful to-do list application built with 
 
 ### **Prerequisites**
 - [Docker](https://www.docker.com/)
-- [Go (1.19+)](https://golang.org/)
+- [Go (1.23.4)](https://golang.org/)
 - Auth0 account
 - SendGrid account
 
@@ -76,6 +76,7 @@ This golang-todo-app is a simple yet powerful to-do list application built with 
 - Add new tasks with a title, description, and due date.
 - Update or delete tasks as needed.
 - Filter tasks by status (e.g., pending, completed).
+
 ### 3. Notifications:
 - Enable email reminders for upcoming tasks.
 - Receive daily summaries of pending tasks.
@@ -112,5 +113,4 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 For questions or feedback, feel free to reach out:
 
-- **Email**: [henrydhall117@gmail.com](mailto:henrydhall117@gmail.com)
 - **GitHub**: [henrydhall897](https://github.com/henrydhall897)
