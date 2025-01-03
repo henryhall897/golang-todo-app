@@ -96,3 +96,17 @@ func (s SQLC) Users() error {
 	return sh.RunV("sqlc", "generate", "-f", "internal/users/sqlc.json")
 
 }
+
+// GenerateTodoListSQLC runs sqlc code generation for the todo_list folder.
+func (s SQLC) TodoList() error {
+	fmt.Println("Running sqlc for the todo_list folder...")
+	// Ensure sqlc is installed
+	mg.Deps(Install.SQLC)
+
+	// Check if the sqlc.json file exists in the todo_list folder
+	if _, err := os.Stat("internal/todo_list/sqlc.json"); os.IsNotExist(err) {
+		return fmt.Errorf("sqlc.json not found in internal/todo_list: %w", err)
+	}
+	// Run sqlc generate for the todo_list folder
+	return sh.RunV("sqlc", "generate", "-f", "internal/todo_list/sqlc.json")
+}

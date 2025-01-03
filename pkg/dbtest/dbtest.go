@@ -92,7 +92,12 @@ func (pgt *PostgresTest) connect(ctx context.Context, migrationDir string, cfg *
 
 	pgt.logger.Debug("Connecting to database", zap.String("url", cfg.ConnectString()))
 
-	pgt.resource.Expire(maxContainerRunTimeSecs)
+	err = pgt.resource.Expire(maxContainerRunTimeSecs)
+	if err != nil {
+		// Log the error or take appropriate action
+		fmt.Printf("failed to set expiration for resource: %v\n", err)
+		return err // Propagate the error if it should terminate the function
+	}
 
 	// Retry connecting to the database
 	pgt.pool.MaxWait = time.Duration(maxContainerRunTimeSecs) * time.Second
