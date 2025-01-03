@@ -5,13 +5,12 @@ import (
 	"errors"
 	"fmt"
 
-	"golang-todo-app/internal/core/common"
-	"golang-todo-app/internal/todo_list/gen"
-
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"golang-todo-app/internal/core/common"
+	"golang-todo-app/internal/todolist/gen"
 )
 
 type Store struct {
@@ -28,10 +27,7 @@ func (s *Store) CreateTodoList(ctx context.Context, userID uuid.UUID, name, desc
 	query := gen.New(s.pool)
 
 	// Use the transform function to convert to database-compatible TodoList
-	dbTodoList, err := toDBTodoListForCreate(userID, name, &description)
-	if err != nil {
-		return TodoList{}, fmt.Errorf("failed to transform todo list: %w", err)
-	}
+	dbTodoList := toDBTodoListForCreate(userID, name, &description)
 
 	// Prepare the parameters for the query using the transformed struct
 	arg := gen.CreateTodoListParams{
@@ -46,32 +42,16 @@ func (s *Store) CreateTodoList(ctx context.Context, userID uuid.UUID, name, desc
 		return TodoList{}, fmt.Errorf("failed to create todo list: %w", err)
 	}
 
-	result, err := toAppTodoList(todoList)
-	if err != nil {
-		return TodoList{}, fmt.Errorf("failed to transform todo list: %w", err)
-	}
-
-	return result, nil
+	return toAppTodoList(todoList), nil
 }
 
 func (s *Store) GetTodoListByID(ctx context.Context, id, userID uuid.UUID) (TodoList, error) {
 	query := gen.New(s.pool)
 
-	// Convert UUIDs using the transform function
-	dbID, err := toDBUUID(id)
-	if err != nil {
-		return TodoList{}, fmt.Errorf("failed to transform todo list id: %w", err)
-	}
-
-	dbUserID, err := toDBUUID(userID)
-	if err != nil {
-		return TodoList{}, fmt.Errorf("failed to transform user id: %w", err)
-	}
-
 	// Create the parameter object for the query
 	params := gen.GetTodoListByIDParams{
-		ID:     dbID,
-		UserID: dbUserID,
+		ID:     id,
+		UserID: userID,
 	}
 
 	// Execute the query
@@ -83,13 +63,7 @@ func (s *Store) GetTodoListByID(ctx context.Context, id, userID uuid.UUID) (Todo
 		return TodoList{}, fmt.Errorf("failed to get todo list: %w", err)
 	}
 
-	// Transform to application-level model
-	result, err := toAppTodoList(todoList)
-	if err != nil {
-		return TodoList{}, fmt.Errorf("failed to transform todo list: %w", err)
-	}
-
-	return result, nil
+	return toAppTodoList(todoList), nil
 }
 
 func (s *Store) UpdateTodoList(ctx context.Context, id uuid.UUID, userID uuid.UUID, name, description string) (TodoList, error) {
@@ -118,27 +92,15 @@ func (s *Store) UpdateTodoList(ctx context.Context, id uuid.UUID, userID uuid.UU
 		return TodoList{}, fmt.Errorf("failed to update todo list: %w", err)
 	}
 
-	// Transform the updated record to the application-level model
-	result, err := toAppTodoList(updatedTodoList)
-	if err != nil {
-		return TodoList{}, fmt.Errorf("failed to transform updated todo list: %w", err)
-	}
-
-	return result, nil
+	return toAppTodoList(updatedTodoList), nil
 }
 
 func (s *Store) ListTodoListsWithPagination(ctx context.Context, userID uuid.UUID, limit, offset int32) ([]TodoList, error) {
 	query := gen.New(s.pool)
 
-	// Convert userID to database-compatible UUID
-	dbUserID, err := toDBUUID(userID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to transform user ID: %w", err)
-	}
-
 	// Prepare query parameters
 	arg := gen.ListTodoListsWithPaginationParams{
-		UserID: dbUserID,
+		UserID: userID,
 		Limit:  limit,
 		Offset: offset,
 	}
@@ -155,11 +117,7 @@ func (s *Store) ListTodoListsWithPagination(ctx context.Context, userID uuid.UUI
 	// Transform the results into application-level TodoList structs
 	results := make([]TodoList, 0, len(todoLists))
 	for _, todo := range todoLists {
-		result, err := toAppTodoList(todo)
-		if err != nil {
-			return nil, fmt.Errorf("failed to transform todo list: %w", err)
-		}
-		results = append(results, result)
+		results = append(results, toAppTodoList(todo))
 	}
 
 	return results, nil
@@ -168,21 +126,10 @@ func (s *Store) ListTodoListsWithPagination(ctx context.Context, userID uuid.UUI
 func (s *Store) DeleteTodoList(ctx context.Context, id uuid.UUID, userID uuid.UUID) (int64, error) {
 	query := gen.New(s.pool)
 
-	// Convert UUIDs using the transform function
-	dbID, err := toDBUUID(id)
-	if err != nil {
-		return 0, fmt.Errorf("failed to transform todo list id: %w", err)
-	}
-
-	dbUserID, err := toDBUUID(userID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to transform user id: %w", err)
-	}
-
 	// Create the parameter object for the query
 	arg := gen.DeleteTodoListParams{
-		ID:     dbID,
-		UserID: dbUserID,
+		ID:     id,
+		UserID: userID,
 	}
 
 	// Execute the delete query
@@ -197,29 +144,13 @@ func (s *Store) DeleteTodoList(ctx context.Context, id uuid.UUID, userID uuid.UU
 	return rowsAffected, nil
 }
 
-func (s *Store) BulkDeleteTodoLists(ctx context.Context, ids []uuid.UUID, userID uuid.UUID) (int64, error) {
+func (s *Store) BulkDeleteTodoLists(ctx context.Context, userID uuid.UUID, ids []uuid.UUID) (int64, error) {
 	query := gen.New(s.pool)
-
-	// Convert userID to database-compatible UUID
-	dbUserID, err := toDBUUID(userID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to transform user id: %w", err)
-	}
-
-	// Convert ids slice to database-compatible UUIDs
-	dbIDs := make([]pgtype.UUID, len(ids))
-	for i, id := range ids {
-		dbID, err := toDBUUID(id)
-		if err != nil {
-			return 0, fmt.Errorf("failed to transform todo list id: %w", err)
-		}
-		dbIDs[i] = dbID
-	}
 
 	// Prepare the parameter object for the query
 	arg := gen.BulkDeleteTodoListsParams{
-		Column1: dbIDs, // Use Column1 instead of IDs
-		UserID:  dbUserID,
+		Column1: ids, // Use Column1 instead of IDs
+		UserID:  userID,
 	}
 
 	// Execute the delete query
