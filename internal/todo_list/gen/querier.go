@@ -20,7 +20,7 @@ type Querier interface {
 	// Retrieve todo lists with pagination
 	ListTodoListsWithPagination(ctx context.Context, arg ListTodoListsWithPaginationParams) ([]TodoList, error)
 	// Update an existing todo list for a specific user
-	UpdateTodoList(ctx context.Context, arg UpdateTodoListParams) error
+	UpdateTodoList(ctx context.Context, arg UpdateTodoListParams) (TodoList, error)
 }
 
 var _ Querier = (*Queries)(nil)

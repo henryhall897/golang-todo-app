@@ -1,4 +1,4 @@
-package todo_list
+package todolist
 
 import (
 	"context"
@@ -109,8 +109,8 @@ func (s *Store) UpdateTodoList(ctx context.Context, id uuid.UUID, userID uuid.UU
 		Description: dbTodoList.Description,
 	}
 
-	// Execute the query
-	err = query.UpdateTodoList(ctx, arg)
+	// Execute the query and get the updated record
+	updatedTodoList, err := query.UpdateTodoList(ctx, arg)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return TodoList{}, common.ErrNotFound
@@ -118,13 +118,13 @@ func (s *Store) UpdateTodoList(ctx context.Context, id uuid.UUID, userID uuid.UU
 		return TodoList{}, fmt.Errorf("failed to update todo list: %w", err)
 	}
 
-	// Retrieve the updated todo list
-	updatedTodoList, err := s.GetTodoListByID(ctx, id, userID)
+	// Transform the updated record to the application-level model
+	result, err := toAppTodoList(updatedTodoList)
 	if err != nil {
-		return TodoList{}, fmt.Errorf("failed to retrieve updated todo list: %w", err)
+		return TodoList{}, fmt.Errorf("failed to transform updated todo list: %w", err)
 	}
 
-	return updatedTodoList, nil
+	return result, nil
 }
 
 func (s *Store) ListTodoListsWithPagination(ctx context.Context, userID uuid.UUID, limit, offset int32) ([]TodoList, error) {

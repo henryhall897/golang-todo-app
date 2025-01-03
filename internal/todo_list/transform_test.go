@@ -1,6 +1,6 @@
 //go:build unit
 
-package todo_list
+package todolist
 
 import (
 	"testing"

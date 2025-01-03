@@ -4,13 +4,6 @@ INSERT INTO todo_lists (user_id, name, description)
 VALUES ($1, $2, $3)
 RETURNING *;
 
--- Update an existing todo list for a specific user
--- name: UpdateTodoList :exec
-UPDATE todo_lists
-SET name = $3, description = $4, updated_at = CURRENT_TIMESTAMP
-WHERE id = $1 AND user_id = $2;
-
-
 -- Retrieve todo lists with pagination
 -- name: ListTodoListsWithPagination :many
 SELECT *
@@ -29,12 +22,15 @@ WHERE id = $1 AND user_id = $2;
 DELETE FROM todo_lists
 WHERE id = ANY($1::uuid[]) AND user_id = $2;
 
-
-
 -- Retrieve a todo list by ID, ensuring it belongs to the user
 -- name: GetTodoListByID :one
 SELECT *
 FROM todo_lists
 WHERE id = $1 AND user_id = $2;
 
-
+-- Update an existing todo list for a specific user
+-- name: UpdateTodoList :one
+UPDATE todo_lists
+SET name = $3, description = $4, updated_at = CURRENT_TIMESTAMP
+WHERE id = $1 AND user_id = $2
+RETURNING *;

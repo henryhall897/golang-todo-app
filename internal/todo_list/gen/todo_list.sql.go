@@ -144,10 +144,11 @@ func (q *Queries) ListTodoListsWithPagination(ctx context.Context, arg ListTodoL
 	return items, nil
 }
 
-const updateTodoList = `-- name: UpdateTodoList :exec
+const updateTodoList = `-- name: UpdateTodoList :one
 UPDATE todo_lists
 SET name = $3, description = $4, updated_at = CURRENT_TIMESTAMP
 WHERE id = $1 AND user_id = $2
+RETURNING id, user_id, name, description, created_at, updated_at
 `
 
 type UpdateTodoListParams struct {
@@ -158,12 +159,21 @@ type UpdateTodoListParams struct {
 }
 
 // Update an existing todo list for a specific user
-func (q *Queries) UpdateTodoList(ctx context.Context, arg UpdateTodoListParams) error {
-	_, err := q.db.Exec(ctx, updateTodoList,
+func (q *Queries) UpdateTodoList(ctx context.Context, arg UpdateTodoListParams) (TodoList, error) {
+	row := q.db.QueryRow(ctx, updateTodoList,
 		arg.ID,
 		arg.UserID,
 		arg.Name,
 		arg.Description,
 	)
-	return err
+	var i TodoList
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.Description,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }

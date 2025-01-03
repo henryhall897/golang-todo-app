@@ -1,6 +1,6 @@
 //go:build unit
 
-package todo_list
+package todolist
 
 import (
 	"context"
@@ -91,18 +91,16 @@ func (t *TodoListTestSuite) TestCreateTodoList() {
 	// Assert
 	t.Require().NoError(err)
 	t.Require().NotNil(createdTodoList)
+
+	// Verify the created record matches the input
 	t.Equal(name, createdTodoList.Name)
 	t.Equal(description, createdTodoList.Description)
 	t.Equal(userID, createdTodoList.UserID)
 
-	// Verify todo list exists in the database
-	retrievedTodoList, err := t.store.GetTodoListByID(ctx, createdTodoList.ID, createdTodoList.UserID)
-	t.Require().NoError(err)
-	t.Require().NotNil(retrievedTodoList)
-	t.Equal(createdTodoList.ID, retrievedTodoList.ID)
-	t.Equal(name, retrievedTodoList.Name)
-	t.Equal(description, retrievedTodoList.Description)
-	t.Equal(userID, retrievedTodoList.UserID)
+	// Ensure generated fields are valid
+	t.Require().NotEqual(uuid.Nil, createdTodoList.ID)
+	t.Require().NotZero(createdTodoList.CreatedAt)
+	t.Require().NotZero(createdTodoList.UpdatedAt)
 }
 
 func (t *TodoListTestSuite) TestUpdateTodoList() {
@@ -112,29 +110,27 @@ func (t *TodoListTestSuite) TestUpdateTodoList() {
 	userID := t.userID
 	name := "Initial Todo List"
 	description := "Initial Description"
+
+	// Create the initial todo list
 	createdTodoList, err := t.store.CreateTodoList(ctx, userID, name, description)
 	t.Require().NoError(err)
 
-	// New values for update
+	// New values for the update
 	updatedName := "Updated Todo List"
 	updatedDescription := "Updated Description"
 
-	// Act: Update the todo list
+	// Act: Update the todo list and get the updated result directly
 	updatedTodoList, err := t.store.UpdateTodoList(ctx, createdTodoList.ID, userID, updatedName, updatedDescription)
 
-	// Assert
+	// Assert: Verify the updated todo list
 	t.Require().NoError(err)
 	t.Require().NotNil(updatedTodoList)
+	t.Equal(createdTodoList.ID, updatedTodoList.ID)
+	t.Equal(userID, updatedTodoList.UserID)
 	t.Equal(updatedName, updatedTodoList.Name)
 	t.Equal(updatedDescription, updatedTodoList.Description)
-	t.Equal(userID, updatedTodoList.UserID)
-	t.Equal(createdTodoList.ID, updatedTodoList.ID)
 
-	// Verify updated fields
-	retrievedTodoList, err := t.store.GetTodoListByID(ctx, createdTodoList.ID, userID)
-	t.Require().NoError(err)
-	t.Equal(updatedName, retrievedTodoList.Name)
-	t.Equal(updatedDescription, retrievedTodoList.Description)
+	// Since the `UpdateTodoList` function now returns the updated row, no need to fetch it again from the database
 }
 
 func (t *TodoListTestSuite) TestListTodoListsWithPagination() {
