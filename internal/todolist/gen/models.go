@@ -5,12 +5,13 @@
 package gen
 
 import (
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Task struct {
-	ID          pgtype.UUID        `json:"id"`
-	ListID      pgtype.UUID        `json:"list_id"`
+	ID          uuid.UUID          `json:"id"`
+	ListID      uuid.UUID          `json:"list_id"`
 	Title       string             `json:"title"`
 	Description pgtype.Text        `json:"description"`
 	Status      pgtype.Text        `json:"status"`
@@ -20,8 +21,8 @@ type Task struct {
 }
 
 type TodoList struct {
-	ID          pgtype.UUID        `json:"id"`
-	UserID      pgtype.UUID        `json:"user_id"`
+	ID          uuid.UUID          `json:"id"`
+	UserID      uuid.UUID          `json:"user_id"`
 	Name        string             `json:"name"`
 	Description pgtype.Text        `json:"description"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
@@ -29,7 +30,7 @@ type TodoList struct {
 }
 
 type User struct {
-	ID        pgtype.UUID        `json:"id"`
+	ID        uuid.UUID          `json:"id"`
 	Name      string             `json:"name"`
 	Email     string             `json:"email"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`

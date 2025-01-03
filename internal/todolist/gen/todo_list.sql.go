@@ -8,6 +8,7 @@ package gen
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -17,8 +18,8 @@ WHERE id = ANY($1::uuid[]) AND user_id = $2
 `
 
 type BulkDeleteTodoListsParams struct {
-	Column1 []pgtype.UUID `json:"column_1"`
-	UserID  pgtype.UUID   `json:"user_id"`
+	Column1 []uuid.UUID `json:"column_1"`
+	UserID  uuid.UUID   `json:"user_id"`
 }
 
 // Bulk delete todo lists for a specific user
@@ -37,7 +38,7 @@ RETURNING id, user_id, name, description, created_at, updated_at
 `
 
 type CreateTodoListParams struct {
-	UserID      pgtype.UUID `json:"user_id"`
+	UserID      uuid.UUID   `json:"user_id"`
 	Name        string      `json:"name"`
 	Description pgtype.Text `json:"description"`
 }
@@ -63,8 +64,8 @@ WHERE id = $1 AND user_id = $2
 `
 
 type DeleteTodoListParams struct {
-	ID     pgtype.UUID `json:"id"`
-	UserID pgtype.UUID `json:"user_id"`
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
 }
 
 // Delete a single todo list by ID for a specific user
@@ -83,8 +84,8 @@ WHERE id = $1 AND user_id = $2
 `
 
 type GetTodoListByIDParams struct {
-	ID     pgtype.UUID `json:"id"`
-	UserID pgtype.UUID `json:"user_id"`
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
 }
 
 // Retrieve a todo list by ID, ensuring it belongs to the user
@@ -111,9 +112,9 @@ LIMIT $2 OFFSET $3
 `
 
 type ListTodoListsWithPaginationParams struct {
-	UserID pgtype.UUID `json:"user_id"`
-	Limit  int32       `json:"limit"`
-	Offset int32       `json:"offset"`
+	UserID uuid.UUID `json:"user_id"`
+	Limit  int32     `json:"limit"`
+	Offset int32     `json:"offset"`
 }
 
 // Retrieve todo lists with pagination
@@ -152,8 +153,8 @@ RETURNING id, user_id, name, description, created_at, updated_at
 `
 
 type UpdateTodoListParams struct {
-	ID          pgtype.UUID `json:"id"`
-	UserID      pgtype.UUID `json:"user_id"`
+	ID          uuid.UUID   `json:"id"`
+	UserID      uuid.UUID   `json:"user_id"`
 	Name        string      `json:"name"`
 	Description pgtype.Text `json:"description"`
 }
