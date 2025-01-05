@@ -28,10 +28,10 @@ func TestToAppTodoList(t *testing.T) {
 			Bytes: validUserID,
 			Valid: true,
 		},
-		Name:        "Sample Todo List",
-		Description: pgtype.Text{String: "Sample Description", Valid: true},
-		CreatedAt:   pgtype.Timestamptz{Time: validTime, Valid: true},
-		UpdatedAt:   pgtype.Timestamptz{Time: validTime, Valid: true},
+		Name:      "Sample Todo List",
+		TodoDesc:  pgtype.Text{String: "Sample Description", Valid: true},
+		CreatedAt: pgtype.Timestamptz{Time: validTime, Valid: true},
+		UpdatedAt: pgtype.Timestamptz{Time: validTime, Valid: true},
 	}
 
 	// Act
@@ -57,8 +57,8 @@ func TestToAppTodoListInvalidID(t *testing.T) {
 			Bytes: uuid.New(),
 			Valid: true,
 		},
-		Name:        "Sample Todo List",
-		Description: pgtype.Text{String: "Sample Description", Valid: true},
+		Name:     "Sample Todo List",
+		TodoDesc: pgtype.Text{String: "Sample Description", Valid: true},
 	}
 
 	// Act
@@ -79,8 +79,8 @@ func TestToAppTodoListInvalidUserID(t *testing.T) {
 		UserID: pgtype.UUID{
 			Valid: false,
 		},
-		Name:        "Sample Todo List",
-		Description: pgtype.Text{String: "Sample Description", Valid: true},
+		Name:     "Sample Todo List",
+		TodoDesc: pgtype.Text{String: "Sample Description", Valid: true},
 	}
 
 	// Act
@@ -113,8 +113,8 @@ func TestToDBTodoList(t *testing.T) {
 	require.Equal(t, validUserID, userID)
 
 	require.Equal(t, "Sample Todo List", result.Name)
-	require.True(t, result.Description.Valid)
-	require.Equal(t, "Sample Description", result.Description.String)
+	require.True(t, result.TodoDesc.Valid)
+	require.Equal(t, "Sample Description", result.TodoDesc.String)
 }
 
 func TestToDBTodoListInvalidID(t *testing.T) {
@@ -155,5 +155,5 @@ func TestToDBTodoListNilDescription(t *testing.T) {
 
 	// Assert
 	require.NoError(t, err)
-	require.False(t, result.Description.Valid)
+	require.False(t, result.TodoDesc.Valid)
 }

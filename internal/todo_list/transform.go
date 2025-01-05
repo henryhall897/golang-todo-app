@@ -33,7 +33,7 @@ func toAppTodoList(todo gen.TodoList) (TodoList, error) {
 		ID:          id,
 		UserID:      userID,
 		Name:        todo.Name,
-		Description: todo.Description.String,
+		Description: todo.TodoDesc.String,
 		CreatedAt:   todo.CreatedAt.Time,
 		UpdatedAt:   todo.UpdatedAt.Time,
 	}, nil
@@ -71,10 +71,10 @@ func toDBTodoList(id uuid.UUID, userID uuid.UUID, name string, description *stri
 
 	// Return the transformed TodoList
 	return gen.TodoList{
-		ID:          dbID, // May be Nil for new records
-		UserID:      dbUserID,
-		Name:        name,
-		Description: dbDescription,
+		ID:       dbID, // May be Nil for new records
+		UserID:   dbUserID,
+		Name:     name,
+		TodoDesc: dbDescription,
 	}, nil
 }
 

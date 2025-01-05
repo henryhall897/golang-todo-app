@@ -31,26 +31,26 @@ func (q *Queries) BulkDeleteTodoLists(ctx context.Context, arg BulkDeleteTodoLis
 }
 
 const createTodoList = `-- name: CreateTodoList :one
-INSERT INTO todo_lists (user_id, name, description)
+INSERT INTO todo_lists (user_id, name, todo_desc)
 VALUES ($1, $2, $3)
-RETURNING id, user_id, name, description, created_at, updated_at
+RETURNING id, user_id, name, todo_desc, created_at, updated_at
 `
 
 type CreateTodoListParams struct {
-	UserID      pgtype.UUID `json:"user_id"`
-	Name        string      `json:"name"`
-	Description pgtype.Text `json:"description"`
+	UserID   pgtype.UUID `json:"user_id"`
+	Name     string      `json:"name"`
+	TodoDesc pgtype.Text `json:"todo_desc"`
 }
 
 // Create a new todo list
 func (q *Queries) CreateTodoList(ctx context.Context, arg CreateTodoListParams) (TodoList, error) {
-	row := q.db.QueryRow(ctx, createTodoList, arg.UserID, arg.Name, arg.Description)
+	row := q.db.QueryRow(ctx, createTodoList, arg.UserID, arg.Name, arg.TodoDesc)
 	var i TodoList
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
 		&i.Name,
-		&i.Description,
+		&i.TodoDesc,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -77,7 +77,7 @@ func (q *Queries) DeleteTodoList(ctx context.Context, arg DeleteTodoListParams) 
 }
 
 const getTodoListByID = `-- name: GetTodoListByID :one
-SELECT id, user_id, name, description, created_at, updated_at
+SELECT id, user_id, name, todo_desc, created_at, updated_at
 FROM todo_lists
 WHERE id = $1 AND user_id = $2
 `
@@ -95,7 +95,7 @@ func (q *Queries) GetTodoListByID(ctx context.Context, arg GetTodoListByIDParams
 		&i.ID,
 		&i.UserID,
 		&i.Name,
-		&i.Description,
+		&i.TodoDesc,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -103,7 +103,7 @@ func (q *Queries) GetTodoListByID(ctx context.Context, arg GetTodoListByIDParams
 }
 
 const listTodoListsWithPagination = `-- name: ListTodoListsWithPagination :many
-SELECT id, user_id, name, description, created_at, updated_at
+SELECT id, user_id, name, todo_desc, created_at, updated_at
 FROM todo_lists
 WHERE user_id = $1
 ORDER BY created_at DESC
@@ -130,7 +130,7 @@ func (q *Queries) ListTodoListsWithPagination(ctx context.Context, arg ListTodoL
 			&i.ID,
 			&i.UserID,
 			&i.Name,
-			&i.Description,
+			&i.TodoDesc,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -146,16 +146,16 @@ func (q *Queries) ListTodoListsWithPagination(ctx context.Context, arg ListTodoL
 
 const updateTodoList = `-- name: UpdateTodoList :one
 UPDATE todo_lists
-SET name = $3, description = $4, updated_at = CURRENT_TIMESTAMP
+SET name = $3, todo_desc = $4, updated_at = CURRENT_TIMESTAMP
 WHERE id = $1 AND user_id = $2
-RETURNING id, user_id, name, description, created_at, updated_at
+RETURNING id, user_id, name, todo_desc, created_at, updated_at
 `
 
 type UpdateTodoListParams struct {
-	ID          pgtype.UUID `json:"id"`
-	UserID      pgtype.UUID `json:"user_id"`
-	Name        string      `json:"name"`
-	Description pgtype.Text `json:"description"`
+	ID       pgtype.UUID `json:"id"`
+	UserID   pgtype.UUID `json:"user_id"`
+	Name     string      `json:"name"`
+	TodoDesc pgtype.Text `json:"todo_desc"`
 }
 
 // Update an existing todo list for a specific user
@@ -164,14 +164,14 @@ func (q *Queries) UpdateTodoList(ctx context.Context, arg UpdateTodoListParams) 
 		arg.ID,
 		arg.UserID,
 		arg.Name,
-		arg.Description,
+		arg.TodoDesc,
 	)
 	var i TodoList
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
 		&i.Name,
-		&i.Description,
+		&i.TodoDesc,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

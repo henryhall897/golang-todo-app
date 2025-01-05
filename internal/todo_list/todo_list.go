@@ -24,20 +24,20 @@ func New(pool *pgxpool.Pool) *Store {
 	}
 }
 
-func (s *Store) CreateTodoList(ctx context.Context, userID uuid.UUID, name, description string) (TodoList, error) {
+func (s *Store) CreateTodoList(ctx context.Context, userID uuid.UUID, name, TodoDesc string) (TodoList, error) {
 	query := gen.New(s.pool)
 
 	// Use the transform function to convert to database-compatible TodoList
-	dbTodoList, err := toDBTodoListForCreate(userID, name, &description)
+	dbTodoList, err := toDBTodoListForCreate(userID, name, &TodoDesc)
 	if err != nil {
 		return TodoList{}, fmt.Errorf("failed to transform todo list: %w", err)
 	}
 
 	// Prepare the parameters for the query using the transformed struct
 	arg := gen.CreateTodoListParams{
-		UserID:      dbTodoList.UserID,
-		Name:        dbTodoList.Name,
-		Description: dbTodoList.Description,
+		UserID:   dbTodoList.UserID,
+		Name:     dbTodoList.Name,
+		TodoDesc: dbTodoList.TodoDesc,
 	}
 
 	// Execute the query
@@ -92,21 +92,21 @@ func (s *Store) GetTodoListByID(ctx context.Context, id, userID uuid.UUID) (Todo
 	return result, nil
 }
 
-func (s *Store) UpdateTodoList(ctx context.Context, id uuid.UUID, userID uuid.UUID, name, description string) (TodoList, error) {
+func (s *Store) UpdateTodoList(ctx context.Context, id uuid.UUID, userID uuid.UUID, name, TodoDesc string) (TodoList, error) {
 	query := gen.New(s.pool)
 
 	// Use the transform function to convert to database-compatible TodoList for update
-	dbTodoList, err := toDBTodoListForUpdate(id, userID, name, &description)
+	dbTodoList, err := toDBTodoListForUpdate(id, userID, name, &TodoDesc)
 	if err != nil {
 		return TodoList{}, fmt.Errorf("failed to transform todo list for update: %w", err)
 	}
 
 	// Prepare the parameters for the query using the transformed struct
 	arg := gen.UpdateTodoListParams{
-		ID:          dbTodoList.ID,
-		UserID:      dbTodoList.UserID,
-		Name:        dbTodoList.Name,
-		Description: dbTodoList.Description,
+		ID:       dbTodoList.ID,
+		UserID:   dbTodoList.UserID,
+		Name:     dbTodoList.Name,
+		TodoDesc: dbTodoList.TodoDesc,
 	}
 
 	// Execute the query and get the updated record
