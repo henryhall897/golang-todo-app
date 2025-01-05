@@ -1,16 +1,21 @@
 {
-    "version": "1",
-    "packages": [
+    "version": "2",
+    "sql": [
         {
-            "path": "./gen",
-            "name": "gen",
             "schema": "../../migrations",
             "queries": "queries",
             "engine": "postgresql",
-            "sql_package": "pgx/v5",
-            "emit_json_tags": true,
-            "emit_prepared_queries": true,
-            "emit_interface": true
+            "gen": {
+                "go": {
+                    "package": "gen",
+                    "out": "./gen",
+                    "sql_package": "pgx/v5",
+                    "emit_json_tags": true,
+                    "emit_prepared_queries": true,
+                    "emit_interface": true
+                }
+            }
         }
     ]
 }
+
