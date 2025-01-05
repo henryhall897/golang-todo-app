@@ -1,6 +1,6 @@
 -- Create a new todo list
 -- name: CreateTodoList :one
-INSERT INTO todo_lists (user_id, name, description)
+INSERT INTO todo_lists (user_id, name, todo_desc)
 VALUES ($1, $2, $3)
 RETURNING *;
 
@@ -31,6 +31,6 @@ WHERE id = $1 AND user_id = $2;
 -- Update an existing todo list for a specific user
 -- name: UpdateTodoList :one
 UPDATE todo_lists
-SET name = $3, description = $4, updated_at = CURRENT_TIMESTAMP
+SET name = $3, todo_desc = $4, updated_at = CURRENT_TIMESTAMP
 WHERE id = $1 AND user_id = $2
 RETURNING *;
