@@ -8,8 +8,10 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 
+	"github.com/joho/godotenv"
 	"github.com/magefile/mage/mg" // mg contains helpful utility functions, like Deps
 	"github.com/magefile/mage/sh"
 )
@@ -109,4 +111,42 @@ func (s SQLC) TodoList() error {
 	}
 	// Run sqlc generate for the todo_list folder
 	return sh.RunV("sqlc", "generate", "-f", "internal/todo_list/sqlc.json")
+}
+
+// GenerateTasksSQLC runs sqlc code generation for the tasks folder.
+func (s SQLC) Tasks() error {
+	fmt.Println("Running sqlc for the tasks folder...")
+	// Ensure sqlc is installed
+	mg.Deps(Install.SQLC)
+
+	// Check if the sqlc.json file exists in the tasks folder
+	if _, err := os.Stat("internal/tasks/sqlc.json"); os.IsNotExist(err) {
+		return fmt.Errorf("sqlc.json not found in internal/tasks: %w", err)
+	}
+	// Run sqlc generate for the tasks folder
+	return sh.RunV("sqlc", "generate", "-f", "internal/tasks/sqlc.json")
+}
+
+// LoadEnv loads the .env file.
+func LoadEnv() {
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Println("No .env file found, falling back to system environment variables.")
+	}
+}
+
+type Migrate mg.Namespace
+
+// Up applies all up migrations.
+func (m Migrate) Up() error {
+	LoadEnv() // Load environment variables
+	fmt.Println("Running up migrations...")
+	return sh.RunV("migrate", "-path", "migrations", "-database", os.Getenv("DATABASE_URL"), "up")
+}
+
+// Down rolls back the last migration.
+func (m Migrate) Down() error {
+	LoadEnv() // Load environment variables
+	fmt.Println("Rolling back the last migration...")
+	return sh.RunV("migrate", "-path", "migrations", "-database", os.Getenv("DATABASE_URL"), "down")
 }
