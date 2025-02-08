@@ -8,10 +8,8 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 
-	"github.com/joho/godotenv"
 	"github.com/magefile/mage/mg" // mg contains helpful utility functions, like Deps
 	"github.com/magefile/mage/sh"
 )
@@ -127,26 +125,28 @@ func (s SQLC) Tasks() error {
 	return sh.RunV("sqlc", "generate", "-f", "internal/tasks/sqlc.json")
 }
 
-// LoadEnv loads the .env file.
-func LoadEnv() {
-	err := godotenv.Load(".env")
-	if err != nil {
-		log.Println("No .env file found, falling back to system environment variables.")
-	}
+type Docker mg.Namespace
+
+// Build builds the Docker image for the application.
+func (Docker) Build() error {
+	fmt.Println("Building Docker image...")
+	return sh.RunV("docker", "build", "-t", "golang-todo-app:latest", ".")
 }
 
-type Migrate mg.Namespace
-
-// Up applies all up migrations.
-func (m Migrate) Up() error {
-	LoadEnv() // Load environment variables
-	fmt.Println("Running up migrations...")
-	return sh.RunV("migrate", "-path", "migrations", "-database", os.Getenv("DATABASE_URL"), "up")
+// Run runs the application container along with the database using Docker Compose.
+func (Docker) Run() error {
+	fmt.Println("Starting Docker containers with Docker Compose...")
+	return sh.RunV("docker-compose", "up", "--build", "-d")
 }
 
-// Down rolls back the last migration.
-func (m Migrate) Down() error {
-	LoadEnv() // Load environment variables
-	fmt.Println("Rolling back the last migration...")
-	return sh.RunV("migrate", "-path", "migrations", "-database", os.Getenv("DATABASE_URL"), "down")
+// Stop stops and removes the Docker containers.
+func (Docker) Stop() error {
+	fmt.Println("Stopping and removing Docker containers...")
+	return sh.RunV("docker-compose", "down")
+}
+
+// Logs displays logs from the application container.
+func (Docker) Logs() error {
+	fmt.Println("Displaying logs from the application container...")
+	return sh.RunV("docker", "logs", "-f", "golang-todo-app")
 }

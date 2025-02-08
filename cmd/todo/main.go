@@ -1,97 +1,143 @@
-// Package main is the entry point to the application
 package main
 
 import (
 	"context"
-	"fmt"
+	"log"
+	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
+	"time"
 
 	"golang-todo-app/internal/core/logging"
+	"golang-todo-app/internal/routes"
+	"golang-todo-app/internal/users"
 
-	"github.com/joho/godotenv"
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/gorilla/mux"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
-
-	envconfig "github.com/sethvargo/go-envconfig"
 )
-
-var (
-	version   string
-	buildDate string
-)
-
-// TODO
-// Config project configuration
-type Config struct {
-	// Database dbpool.Config
-	// Server   server.Config
-}
-
-// TODO
-// Log prints the configuration to the log
-func (cfg *Config) Log(ctx context.Context) {
-	logger := logging.GetLogger(ctx)
-
-	logger.Infow("Configuration")
-	// "database", cfg.Database,
-	// "server", cfg.Server)
-}
 
 func main() {
-	err := godotenv.Overload("../../.env")
+	// Load environment variables
+	dbURL := os.Getenv("DATABASE_URL")
+	serverBindAddress := os.Getenv("SERVER_BIND_ADDRESS")
+	serverPort := os.Getenv("SERVER_PORT")
+	//corsOrigin := os.Getenv("CORS_ORIGIN")
+	logLevel := os.Getenv("LOG_LEVEL")
+
+	// Initialize logger
+	logger, err := initializeLogger(logLevel)
 	if err != nil {
-		dir, err := os.Getwd()
-		if err != nil {
-			fmt.Println(dir)
-		}
+		log.Fatalf("Failed to initialize logger: %v", err)
+	}
+	defer logger.Sync()
+	sugarLogger := logger.Sugar()
+
+	zapLogger := logging.ZapLogger{SugaredLogger: sugarLogger}
+
+	// Apply database migrations
+	if err := applyMigrations(dbURL); err != nil {
+		sugarLogger.Fatalf("Failed to apply migrations: %v", err)
 	}
 
-	ctx, done := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	// Initialize database connection pool
+	pool, err := initializeDatabasePool(dbURL)
+	if err != nil {
+		sugarLogger.Fatalf("Failed to connect to the database: %v", err)
+	}
+	defer pool.Close()
 
-	logger := logging.InitializeLogger("debug", false).Sugar()
+	// Initialize stores
+	userStore := users.New(pool)
 
-	defer func() {
-		done()
-		if r := recover(); r != nil {
-			logger.Errorw("application panic", "panic", r)
-			os.Exit(1)
+	// Setup routes and handlers
+	router := mux.NewRouter()
+	routes.RegisterUserRoutes(router, userStore, &zapLogger)
+
+	// Apply CORS middleware (optional)
+	// corsMiddleware := middleware.CORS(corsOrigin)
+	// router.Use(corsMiddleware)
+
+	// Start the server with graceful shutdown
+	srv := &http.Server{
+		Addr:         serverBindAddress + ":" + serverPort,
+		Handler:      router,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	go func() {
+		sugarLogger.Infof("Server running on http://%s:%s", serverBindAddress, serverPort)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			sugarLogger.Fatalf("Server error: %v", err)
 		}
 	}()
 
-	err = run(ctx, logger)
-	done()
+	<-ctx.Done()
+	sugarLogger.Info("Shutting down server...")
 
-	if err != nil {
-		logger.Error("run result", "err", err)
-		os.Exit(1)
+	if err := srv.Shutdown(ctx); err != nil {
+		sugarLogger.Fatalf("Server shutdown failed: %v", err)
 	}
-	logger.Info("successful shutdown")
+	sugarLogger.Info("Server shut down gracefully.")
 }
 
-func run(ctx context.Context, logger *zap.SugaredLogger) error {
-
-	logger.Debugw("Read in Configuration",
-		"version", version,
-		"buildDate", buildDate)
-	cfg := Config{}
-	if err := Setup(ctx, &cfg); err != nil {
-		return fmt.Errorf("failed to read the configuration from the environment: %w", err)
+// initializeLogger sets up the logger based on the log level from environment variables
+func initializeLogger(logLevel string) (*zap.Logger, error) {
+	cfg := zap.NewProductionConfig()
+	switch logLevel {
+	case "DEBUG":
+		cfg.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
+	case "INFO":
+		cfg.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
+	case "ERROR":
+		cfg.Level = zap.NewAtomicLevelAt(zap.ErrorLevel)
+	default:
+		cfg.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
 	}
-	logger.Infow("go-crud-example", "config", cfg)
+	return cfg.Build()
+}
 
-	// logger.Debug("Open Database")
-	// pool, err := dbpool.New(ctx, logger, &cfg.Database)
-	// if err != nil {
-	// 	return fmt.Errorf("unable to open the database: %w", err)
-	// }
+// applyMigrations applies all up migrations from the migrations directory
+func applyMigrations(databaseURL string) error {
+	m, err := migrate.New(
+		"file://migrations", // Path to your migration files
+		databaseURL,
+	)
+	if err != nil {
+		return err
+	}
 
-	// h := handler.BuildHandler(ctx, logger, models.NewDBStore(pool))
-	// srv := server.NewHTTPServer(logger, &cfg.Server)
-	// return srv.Serve(ctx, h)
+	// Run the migrations
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		return err
+	}
+
+	log.Println("Database migrations applied successfully.")
 	return nil
 }
 
-func Setup(ctx context.Context, config any) error {
-	return envconfig.Process(ctx, config)
+// initializeDatabasePool sets up the database connection pool
+func initializeDatabasePool(dbURL string) (*pgxpool.Pool, error) {
+	maxConn, _ := strconv.Atoi(os.Getenv("POOL_MAX_CONN"))
+	minConn, _ := strconv.Atoi(os.Getenv("POOL_MIN_CONN"))
+
+	config, err := pgxpool.ParseConfig(dbURL)
+	if err != nil {
+		return nil, err
+	}
+
+	// Apply pool configuration from environment variables
+	config.MaxConns = int32(maxConn)
+	config.MinConns = int32(minConn)
+
+	return pgxpool.NewWithConfig(context.Background(), config)
 }

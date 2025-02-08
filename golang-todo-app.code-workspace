@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"name": "golang-todo-app",
+			"path": "."
+		}
+	],
+	"settings": {
+		"go.buildFlags": [
+			"-tags=unit,integration"
+		],
+		"go.testTags": "unit,integration",
+		"go.toolsEnvVars": {
+			"GOFLAGS": "-tags=mage"
+		}
+	}
+}
