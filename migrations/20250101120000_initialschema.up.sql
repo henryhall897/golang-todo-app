@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS todo_lists (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
-    description TEXT,
+    todo_desc TEXT, -- Renamed from 'description'
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -26,10 +26,13 @@ CREATE TABLE IF NOT EXISTS todo_lists (
 CREATE TABLE IF NOT EXISTS tasks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     list_id UUID NOT NULL REFERENCES todo_lists(id) ON DELETE CASCADE,
-    title VARCHAR(255) NOT NULL,
-    description TEXT,
+    title TEXT NOT NULL, -- Changed from VARCHAR(255) to TEXT
+    task_desc TEXT,      -- Renamed from 'description'
     status VARCHAR(50) DEFAULT 'pending',
+    priority INTEGER DEFAULT 0, -- New priority column
     due_date TIMESTAMP WITH TIME ZONE,
+    completed_at TIMESTAMP WITH TIME ZONE, -- New completed_at column
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
