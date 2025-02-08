@@ -14,17 +14,17 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type Store struct {
+type UserStore struct {
 	pool *pgxpool.Pool
 }
 
-func New(pool *pgxpool.Pool) *Store {
-	return &Store{
+func New(pool *pgxpool.Pool) *UserStore {
+	return &UserStore{
 		pool: pool,
 	}
 }
 
-func (s *Store) CreateUser(ctx context.Context, name, email string) (User, error) {
+func (s *UserStore) CreateUser(ctx context.Context, name, email string) (User, error) {
 	query := gen.New(s.pool)
 
 	user, err := query.CreateUser(ctx, gen.CreateUserParams{
@@ -43,7 +43,7 @@ func (s *Store) CreateUser(ctx context.Context, name, email string) (User, error
 	return result, nil
 }
 
-func (s *Store) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
+func (s *UserStore) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 	query := gen.New(s.pool)
 
 	user, err := query.GetUserByID(ctx, pgtype.UUID{
@@ -53,7 +53,7 @@ func (s *Store) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, common.ErrNotFound
 	} else if err != nil {
-		return User{}, fmt.Errorf("failed to get user by id: %w", err)
+		return User{}, &common.UserIDNotFoundError{UserID: id}
 	}
 
 	result, err := pgToUsers(user)
@@ -64,7 +64,7 @@ func (s *Store) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 	return result, nil
 }
 
-func (s *Store) GetUserByEmail(ctx context.Context, email string) (User, error) {
+func (s *UserStore) GetUserByEmail(ctx context.Context, email string) (User, error) {
 	query := gen.New(s.pool)
 
 	user, err := query.GetUserByEmail(ctx, email)
@@ -82,11 +82,13 @@ func (s *Store) GetUserByEmail(ctx context.Context, email string) (User, error) 
 	return result, nil
 }
 
-func (s *Store) ListUsers(ctx context.Context, arg gen.ListUsersParams) ([]User, error) {
+func (s *UserStore) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error) {
 	query := gen.New(s.pool)
+	// Convert the ListUsersParams to gen.ListUsersParams
+	pgArg := toPgListParams(arg)
 
 	// Execute the query to get users
-	users, err := query.ListUsers(ctx, arg)
+	users, err := query.ListUsers(ctx, pgArg)
 	if errors.Is(err, pgx.ErrNoRows) {
 		// Return an empty array if no rows are found
 		return []User{}, nil
@@ -107,7 +109,7 @@ func (s *Store) ListUsers(ctx context.Context, arg gen.ListUsersParams) ([]User,
 	return results, nil
 }
 
-func (s *Store) UpdateUser(ctx context.Context, id uuid.UUID, name, email string) (User, error) {
+func (s *UserStore) UpdateUser(ctx context.Context, id uuid.UUID, name, email string) (User, error) {
 	query := gen.New(s.pool)
 	pgId, err := uuidToPgUUID(id)
 	if err != nil {
@@ -138,7 +140,7 @@ func (s *Store) UpdateUser(ctx context.Context, id uuid.UUID, name, email string
 	return updatedUser, nil
 }
 
-func (s *Store) DeleteUser(ctx context.Context, id uuid.UUID) error {
+func (s *UserStore) DeleteUser(ctx context.Context, id uuid.UUID) error {
 	query := gen.New(s.pool)
 
 	// Convert uuid.UUID to pgtype.UUID

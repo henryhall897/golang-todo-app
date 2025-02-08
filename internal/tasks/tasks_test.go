@@ -532,7 +532,7 @@ func (t *TaskTestSuite) TestUpdateMultipleTaskPriorities() {
 		UserID:   t.userID,
 		Priority: updatedPriority, // Updated priority pointer
 	}
-	updatedTask, err := t.store.UpdateTaskPriority(t.ctx, params)
+	updatedTask, err := t.store.UpdateTask(t.ctx, params)
 	t.Require().NoError(err)
 	t.Require().NotNil(updatedTask)
 

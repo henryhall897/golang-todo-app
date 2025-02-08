@@ -13,3 +13,9 @@ type User struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
+
+// ListUsersParams defines the parameters for listing users.
+type ListUsersParams struct {
+	Limit  int
+	Offset int
+}

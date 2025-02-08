@@ -37,3 +37,11 @@ func uuidToPgUUID(id uuid.UUID) (pgtype.UUID, error) {
 		Valid: true,
 	}, nil
 }
+
+// toPgListParams converts ListUsersParams to gen.ListUsersParams
+func toPgListParams(params ListUsersParams) gen.ListUsersParams {
+	return gen.ListUsersParams{
+		Limit:  int32(params.Limit),
+		Offset: int32(params.Offset),
+	}
+}

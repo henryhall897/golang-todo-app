@@ -2,11 +2,13 @@ package tasks
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"golang-todo-app/internal/tasks/gen"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -73,6 +75,9 @@ func (s *Store) UpdateTask(ctx context.Context, params UpdateTaskParams) (FullTa
 	// Execute the query
 	updatedTask, err := query.UpdateTask(ctx, dbParams)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return FullTask{}, fmt.Errorf("no task found to update with the provided parameters: %w", err)
+		}
 		return FullTask{}, fmt.Errorf("failed to update task: %w", err)
 	}
 
@@ -153,43 +158,66 @@ func (s *Store) ListOverdueTasks(ctx context.Context, params TaskListParams) ([]
 	return toFullTaskList(dbTasks)
 }
 
-// MarkTaskCompleted updates a task's status to 'completed' and handles priority and completed_at updates.
+// MarkTaskCompleted updates a task's status to 'completed' and handles priority and completed_at updates within a transaction.
 func (s *Store) MarkTaskCompleted(ctx context.Context, params UpdateTaskParams) (FullTask, error) {
-	query := gen.New(s.pool)
+	// Start a new transaction
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return FullTask{}, fmt.Errorf("failed to begin transaction: %w", err)
+	}
 
-	// Transform the Go struct to a database-compatible struct for the remaining fields
+	// Ensure rollback on failure
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback(ctx)
+			panic(p) // Re-panic after rollback
+		} else if err != nil {
+			tx.Rollback(ctx)
+		}
+	}()
+
+	query := gen.New(tx)
+
+	// Step 1: Update task status to 'completed' and set priority and completed_at
 	dbParams, err := toDBUpdateTaskParams(params)
 	if err != nil {
 		return FullTask{}, fmt.Errorf("failed to transform update task params: %w", err)
 	}
+
 	updateParams, err := toMarkTaskCompletedParams(dbParams)
 	if err != nil {
 		return FullTask{}, fmt.Errorf("failed to transform mark task completed params: %w", err)
 	}
-	// Execute the general update query for other fields (title, description, etc.)
+
 	err = query.MarkTaskCompleted(ctx, updateParams)
 	if err != nil {
-		return FullTask{}, fmt.Errorf("failed to update task: %w", err)
+		return FullTask{}, fmt.Errorf("failed to mark task as completed: %w", err)
 	}
 
-	generalUpdateParams := params
-	generalUpdateParams.Priority = nil    // Set priority to nil to exclude it from the general update
-	generalUpdateParams.Status = nil      // Set status to nil to exclude it from the general update
-	generalUpdateParams.CompletedAt = nil // Set completed_at to nil to exclude it from the general update
+	// Step 2: Perform a general update for other fields (title, description, etc.)
+	params.Priority = nil    // Exclude priority from general update
+	params.Status = nil      // Exclude status from general update
+	params.CompletedAt = nil // Exclude completed_at from general update
 
-	// Transform the Go struct to a database-compatible struct for the general update
-	genUpdateParams, err := toDBUpdateTaskParams(generalUpdateParams)
+	genUpdateParams, err := toDBUpdateTaskParams(params)
 	if err != nil {
 		return FullTask{}, fmt.Errorf("failed to transform update task params: %w", err)
 	}
 
-	// Execute the general update query for other fields (title, description, etc.)
 	genTask, err := query.UpdateTask(ctx, genUpdateParams)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return FullTask{}, fmt.Errorf("no task found to update with the provided parameters: %w", err)
+		}
 		return FullTask{}, fmt.Errorf("failed to update task: %w", err)
 	}
 
-	// Convert the database result back to the application-compatible struct
+	// Step 3: Commit the transaction
+	if err = tx.Commit(ctx); err != nil {
+		return FullTask{}, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	// Step 4: Convert the database result back to the application-compatible struct
 	result, err := toFullTask(genTask)
 	if err != nil {
 		return FullTask{}, fmt.Errorf("failed to transform task from database: %w", err)
@@ -248,34 +276,58 @@ func (s *Store) SearchTasks(ctx context.Context, params SearchTasksParams) ([]Fu
 	return fullTasks, nil
 }
 
-// UpdateTaskPriority handles updating priority and reordering tasks based on priority
+// UpdateTaskPriority handles updating priority and reordering tasks based on priority with transaction support.
 func (s *Store) UpdateTaskPriority(ctx context.Context, params UpdateTaskParams) (FullTask, error) {
-	query := gen.New(s.pool)
-
-	updatePrioParams := toDBUpdatePriorityParams(params)
-	// Execute the priority update query
-	err := query.UpdateTaskPriority(ctx, updatePrioParams)
+	// Start a new transaction
+	tx, err := s.pool.Begin(ctx)
 	if err != nil {
+		return FullTask{}, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	// Ensure rollback on failure
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback(ctx)
+			panic(p) // Re-panic after rollback
+		} else if err != nil {
+			tx.Rollback(ctx)
+		}
+	}()
+
+	query := gen.New(tx)
+
+	// Step 1: Update the task priority
+	updatePrioParams := toDBUpdatePriorityParams(params)
+	err = query.UpdateTaskPriority(ctx, updatePrioParams)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return FullTask{}, fmt.Errorf("task not found for priority update: %w", err)
+		}
 		return FullTask{}, fmt.Errorf("failed to update task priority: %w", err)
 	}
 
-	// Now that priority is updated, update the other fields (excluding priority)
-	// Transform the Go struct to a database-compatible struct for the general update
+	// Step 2: Update other fields except priority
 	paramsWithoutPriority := params
-	paramsWithoutPriority.Priority = nil // Set priority to nil to exclude it from the general update
-
+	paramsWithoutPriority.Priority = nil
 	noPrioParams, err := toDBUpdateTaskParams(paramsWithoutPriority)
 	if err != nil {
 		return FullTask{}, fmt.Errorf("failed to transform update task params: %w", err)
 	}
-	// Call the general update function for all fields except priority
+
 	updatedTaskGeneral, err := query.UpdateTask(ctx, noPrioParams)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return FullTask{}, fmt.Errorf("no task found to update with the provided parameters: %w", err)
+		}
 		return FullTask{}, fmt.Errorf("failed to update task: %w", err)
 	}
 
-	// Step 3: Combine the results from both updates (priority update and general update)
-	// Convert the database result back to the application-compatible struct
+	// Step 3: Commit the transaction
+	if err = tx.Commit(ctx); err != nil {
+		return FullTask{}, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	// Step 4: Convert the updated task to the application-compatible format
 	result, err := toFullTask(updatedTaskGeneral)
 	if err != nil {
 		return FullTask{}, fmt.Errorf("failed to transform task from database: %w", err)

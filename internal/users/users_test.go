@@ -8,7 +8,6 @@ import (
 
 	"golang-todo-app/internal/core/common"
 	"golang-todo-app/internal/core/dbpool"
-	"golang-todo-app/internal/users/gen"
 	"golang-todo-app/pkg/dbtest"
 
 	"github.com/google/uuid"
@@ -20,7 +19,7 @@ type UserTestSuite struct {
 	suite.Suite
 	pgt   *dbtest.PostgresTest
 	ctx   context.Context
-	store *Store
+	store *UserStore
 }
 
 func TestUsers(t *testing.T) {
@@ -197,7 +196,7 @@ func (u *UserTestSuite) TestListUsers() {
 	}
 
 	// Act
-	params := gen.ListUsersParams{
+	params := ListUsersParams{
 		Limit:  3,
 		Offset: 0,
 	}
@@ -243,7 +242,7 @@ func (u *UserTestSuite) TestListUsersWithPagination() {
 	}
 
 	// Act
-	params := gen.ListUsersParams{
+	params := ListUsersParams{
 		Limit:  2, // Retrieve only 2 users
 		Offset: 1, // Skip the first user (Charlie)
 	}
@@ -288,7 +287,7 @@ func (u *UserTestSuite) TestListUsersEmptyResults() {
 	}
 
 	// Act with OFFSET exceeding total rows
-	params := gen.ListUsersParams{
+	params := ListUsersParams{
 		Limit:  2,
 		Offset: 10, // Skip more rows than exist
 	}
@@ -299,7 +298,7 @@ func (u *UserTestSuite) TestListUsersEmptyResults() {
 	u.Require().Empty(results, "Expected no results when offset exceeds row count")
 
 	// Act with LIMIT = 0
-	params = gen.ListUsersParams{
+	params = ListUsersParams{
 		Limit:  0, // No rows should be returned
 		Offset: 0,
 	}
