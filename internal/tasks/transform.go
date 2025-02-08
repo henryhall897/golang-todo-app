@@ -3,7 +3,6 @@ package tasks
 import (
 	"fmt"
 	"golang-todo-app/internal/tasks/gen"
-	"time"
 
 	"golang-todo-app/internal/core/common"
 
@@ -38,53 +37,26 @@ func toDBCreateTask(params CreateTaskParams) (gen.CreateTaskParams, error) {
 
 // toFullTask converts a Task (pgtype-based) struct to a FullTask (Go type-based) struct.
 func toFullTask(dbTask gen.Task) (FullTask, error) {
-	// Convert ID
+	// Convert ID and ListID using common utility functions
 	id, err := common.FromPgUUID(dbTask.ID)
 	if err != nil {
 		return FullTask{}, fmt.Errorf("invalid id: %w", err)
 	}
 
-	// Convert ListID
 	listID, err := common.FromPgUUID(dbTask.ListID)
 	if err != nil {
 		return FullTask{}, fmt.Errorf("invalid list_id: %w", err)
 	}
 
-	// Convert Description (check for nil)
-	var description *string
-	if dbTask.TaskDesc.Valid {
-		description = &dbTask.TaskDesc.String
-	}
-
+	// Convert fields using utility functions
 	title := common.FromPgText(dbTask.Title)
-
-	// Convert Status (check for nil)
-	var status *string
-	if dbTask.Status.Valid {
-		status = &dbTask.Status.String
-	}
-
-	// Convert DueDate (check for nil)
-	var dueDate *time.Time
-	if dbTask.DueDate.Valid {
-		dueDate = &dbTask.DueDate.Time
-	}
-
-	// Convert CreatedAt and UpdatedAt
+	description := common.FromPgText(dbTask.TaskDesc)
+	status := common.FromPgText(dbTask.Status)
+	dueDate := common.FromPgTimestamptz(dbTask.DueDate)
 	createdAt := dbTask.CreatedAt.Time
 	updatedAt := dbTask.UpdatedAt.Time
-
-	// Convert CompletedAt (check for nil)
-	var completedAt *time.Time
-	if dbTask.CompletedAt.Valid {
-		completedAt = &dbTask.CompletedAt.Time
-	}
-
-	// Convert Priority (check if valid)
-	var priority *int32
-	if dbTask.Priority.Valid {
-		priority = common.Ptr(dbTask.Priority.Int32)
-	}
+	completedAt := common.FromPgTimestamptz(dbTask.CompletedAt)
+	priority := common.FromPgInt4(dbTask.Priority)
 
 	// Return the transformed FullTask
 	return FullTask{
@@ -116,70 +88,35 @@ func toFullTaskList(dbTasks []gen.Task) ([]FullTask, error) {
 
 // toDBUpdateTaskParams converts UpdateTaskParams (Go struct) into a pgtype-compatible UpdateTaskParams struct.
 func toDBUpdateTaskParams(params UpdateTaskParams) (gen.UpdateTaskParams, error) {
-	// Convert and validate TaskID
+	// Convert ID and UserID using utility functions
 	dbTaskID, err := common.ToPgUUID(params.ID)
 	if err != nil {
 		return gen.UpdateTaskParams{}, fmt.Errorf("invalid task_id: %w", err)
 	}
 
-	// Convert and validate UserID
 	dbUserID, err := common.ToPgUUID(params.UserID)
 	if err != nil {
 		return gen.UpdateTaskParams{}, fmt.Errorf("invalid user_id: %w", err)
 	}
 
-	// Handle Title
-	var dbTitle pgtype.Text
-	if params.Title != nil {
-		dbTitle = common.ToPgText(params.Title)
-	} else {
-		dbTitle.Valid = false
-	}
+	// Use common conversion functions for all other fields
+	dbTitle := common.ToPgText(params.Title)
+	dbTaskDesc := common.ToPgText(params.TaskDesc)
+	dbStatus := common.ToPgText(params.Status)
+	dbDueDate := common.ToPgTimestamptz(params.DueDate)
+	dbCompletedAt := common.ToPgTimestamptz(params.CompletedAt)
 
-	// Convert Task Description
-	var dbTaskDesc pgtype.Text
-	if params.TaskDesc != nil {
-		dbTaskDesc = common.ToPgText(params.TaskDesc)
-	} else {
-		dbTaskDesc.Valid = false
-	}
-
-	// Convert Status
-	var dbStatus pgtype.Text
-	if params.Status != nil {
-		dbStatus = common.ToPgText(params.Status)
-	} else {
-		dbStatus.Valid = false
-	}
-
-	// Convert DueDate
-	var dbDueDate pgtype.Timestamptz
-	if params.DueDate != nil {
-		dbDueDate = common.ToPgTimestamptz(params.DueDate)
-	} else {
-		dbDueDate.Valid = false
-	}
-
-	// Convert CompletedAt
-	var dbCompletedAt pgtype.Timestamptz
-	if params.CompletedAt != nil {
-		dbCompletedAt = common.ToPgTimestamptz(params.CompletedAt)
-	} else {
-		dbCompletedAt.Valid = false
-	}
-
-	// Handle Priority (if it's not nil, we need to handle it properly)
+	// Handle Priority
 	var dbPriority pgtype.Int4
-
 	if params.CompletedAt != nil {
 		// If the task is marked as completed, explicitly set priority to NULL
 		dbPriority.Valid = false
 	} else if params.Priority != nil {
-		// If priority is provided, use it
+		// If priority is provided, use the conversion function
 		dbPriority = common.ToPgInt4(*params.Priority)
 	} else {
 		// If priority is not provided and task is not completed, leave it unchanged
-		dbPriority.Valid = false // Mark as invalid to retain the current value
+		dbPriority.Valid = false
 	}
 
 	// Return the transformed struct
