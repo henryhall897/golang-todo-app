@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"golang-todo-app/internal/core/dbpool"
+	"github.com/henryhall897/golang-todo-app/internal/core/dbpool"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres" // Required for postgres

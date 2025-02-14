@@ -12,25 +12,25 @@ import (
 )
 
 const createTask = `-- name: CreateTask :one
-INSERT INTO tasks (list_id, title, task_desc, status, due_date, priority)
+INSERT INTO tasks (list_id, title, description, status, due_date, priority)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, list_id, title, task_desc, status, due_date, created_at, updated_at, priority, completed_at
+RETURNING id, list_id, title, description, status, priority, due_date, completed_at, created_at, updated_at
 `
 
 type CreateTaskParams struct {
-	ListID   pgtype.UUID        `json:"list_id"`
-	Title    pgtype.Text        `json:"title"`
-	TaskDesc pgtype.Text        `json:"task_desc"`
-	Status   pgtype.Text        `json:"status"`
-	DueDate  pgtype.Timestamptz `json:"due_date"`
-	Priority pgtype.Int4        `json:"priority"`
+	ListID      pgtype.UUID        `json:"list_id"`
+	Title       pgtype.Text        `json:"title"`
+	Description pgtype.Text        `json:"description"`
+	Status      pgtype.Text        `json:"status"`
+	DueDate     pgtype.Timestamptz `json:"due_date"`
+	Priority    pgtype.Int4        `json:"priority"`
 }
 
 func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (Task, error) {
 	row := q.db.QueryRow(ctx, createTask,
 		arg.ListID,
 		arg.Title,
-		arg.TaskDesc,
+		arg.Description,
 		arg.Status,
 		arg.DueDate,
 		arg.Priority,
@@ -40,24 +40,24 @@ func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (Task, e
 		&i.ID,
 		&i.ListID,
 		&i.Title,
-		&i.TaskDesc,
+		&i.Description,
 		&i.Status,
+		&i.Priority,
 		&i.DueDate,
+		&i.CompletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.Priority,
-		&i.CompletedAt,
 	)
 	return i, err
 }
 
 const deleteTasks = `-- name: DeleteTasks :many
 DELETE FROM tasks
-USING todo_lists
+USING todolists
 WHERE tasks.id = ANY($1::uuid[])
-  AND tasks.list_id = todo_lists.id
-  AND todo_lists.user_id = $2
-RETURNING tasks.id, tasks.list_id, tasks.title, tasks.task_desc, tasks.status, tasks.due_date, tasks.created_at, tasks.updated_at, tasks.priority, tasks.completed_at
+  AND tasks.list_id = todolists.id
+  AND todolists.user_id = $2
+RETURNING tasks.id, tasks.list_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.due_date, tasks.completed_at, tasks.created_at, tasks.updated_at
 `
 
 type DeleteTasksParams struct {
@@ -78,13 +78,13 @@ func (q *Queries) DeleteTasks(ctx context.Context, arg DeleteTasksParams) ([]Tas
 			&i.ID,
 			&i.ListID,
 			&i.Title,
-			&i.TaskDesc,
+			&i.Description,
 			&i.Status,
+			&i.Priority,
 			&i.DueDate,
+			&i.CompletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.Priority,
-			&i.CompletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -97,12 +97,11 @@ func (q *Queries) DeleteTasks(ctx context.Context, arg DeleteTasksParams) ([]Tas
 }
 
 const listOverdueTasks = `-- name: ListOverdueTasks :many
-
-SELECT tasks.id, tasks.list_id, tasks.title, tasks.task_desc, tasks.status, tasks.due_date, tasks.created_at, tasks.updated_at, tasks.priority, tasks.completed_at
+SELECT tasks.id, tasks.list_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.due_date, tasks.completed_at, tasks.created_at, tasks.updated_at
 FROM tasks
-JOIN todo_lists ON tasks.list_id = todo_lists.id
+JOIN todolists ON tasks.list_id = todolists.id
 WHERE tasks.list_id = $1
-  AND todo_lists.user_id = $2
+  AND todolists.user_id = $2
   AND tasks.due_date < CURRENT_TIMESTAMP
   AND tasks.status != 'completed'
 ORDER BY tasks.due_date ASC
@@ -113,7 +112,6 @@ type ListOverdueTasksParams struct {
 	UserID pgtype.UUID `json:"user_id"`
 }
 
-// Reference user_id from todo_lists table
 func (q *Queries) ListOverdueTasks(ctx context.Context, arg ListOverdueTasksParams) ([]Task, error) {
 	rows, err := q.db.Query(ctx, listOverdueTasks, arg.ListID, arg.UserID)
 	if err != nil {
@@ -127,13 +125,13 @@ func (q *Queries) ListOverdueTasks(ctx context.Context, arg ListOverdueTasksPara
 			&i.ID,
 			&i.ListID,
 			&i.Title,
-			&i.TaskDesc,
+			&i.Description,
 			&i.Status,
+			&i.Priority,
 			&i.DueDate,
+			&i.CompletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.Priority,
-			&i.CompletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -146,11 +144,11 @@ func (q *Queries) ListOverdueTasks(ctx context.Context, arg ListOverdueTasksPara
 }
 
 const listTasks = `-- name: ListTasks :many
-SELECT tasks.id, tasks.list_id, tasks.title, tasks.task_desc, tasks.status, tasks.due_date, tasks.created_at, tasks.updated_at, tasks.priority, tasks.completed_at
+SELECT tasks.id, tasks.list_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.due_date, tasks.completed_at, tasks.created_at, tasks.updated_at
 FROM tasks
-JOIN todo_lists ON tasks.list_id = todo_lists.id
-WHERE todo_lists.id = $1
-  AND todo_lists.user_id = $2
+JOIN todolists ON tasks.list_id = todolists.id
+WHERE todolists.id = $1
+  AND todolists.user_id = $2
 ORDER BY tasks.priority ASC, tasks.due_date ASC
 `
 
@@ -172,13 +170,13 @@ func (q *Queries) ListTasks(ctx context.Context, arg ListTasksParams) ([]Task, e
 			&i.ID,
 			&i.ListID,
 			&i.Title,
-			&i.TaskDesc,
+			&i.Description,
 			&i.Status,
+			&i.Priority,
 			&i.DueDate,
+			&i.CompletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.Priority,
-			&i.CompletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -191,11 +189,11 @@ func (q *Queries) ListTasks(ctx context.Context, arg ListTasksParams) ([]Task, e
 }
 
 const listTasksByStatus = `-- name: ListTasksByStatus :many
-SELECT tasks.id, tasks.list_id, tasks.title, tasks.task_desc, tasks.status, tasks.due_date, tasks.created_at, tasks.updated_at, tasks.priority, tasks.completed_at
+SELECT tasks.id, tasks.list_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.due_date, tasks.completed_at, tasks.created_at, tasks.updated_at
 FROM tasks
-JOIN todo_lists ON tasks.list_id = todo_lists.id
+JOIN todolists ON tasks.list_id = todolists.id
 WHERE tasks.list_id = $1
-  AND todo_lists.user_id = $2
+  AND todolists.user_id = $2
   AND tasks.status = $3
 `
 
@@ -218,13 +216,13 @@ func (q *Queries) ListTasksByStatus(ctx context.Context, arg ListTasksByStatusPa
 			&i.ID,
 			&i.ListID,
 			&i.Title,
-			&i.TaskDesc,
+			&i.Description,
 			&i.Status,
+			&i.Priority,
 			&i.DueDate,
+			&i.CompletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.Priority,
-			&i.CompletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -239,15 +237,15 @@ func (q *Queries) ListTasksByStatus(ctx context.Context, arg ListTasksByStatusPa
 const markTaskCompleted = `-- name: MarkTaskCompleted :exec
 UPDATE tasks
 SET 
-    status = 'completed',                -- Set status to 'completed'
-    priority = NULL,                      -- Set priority to NULL when task is completed
-    completed_at = CURRENT_TIMESTAMP,    -- Set completed_at to current timestamp
-    updated_at = CURRENT_TIMESTAMP       -- Update the timestamp for the task
-FROM todo_lists
+    status = 'completed',               
+    priority = NULL,                      
+    completed_at = CURRENT_TIMESTAMP,    
+    updated_at = CURRENT_TIMESTAMP       
+FROM todolists
 WHERE 
     tasks.id = $1
-    AND tasks.list_id = todo_lists.id
-    AND todo_lists.user_id = $2
+    AND tasks.list_id = todolists.id
+    AND todolists.user_id = $2
 `
 
 type MarkTaskCompletedParams struct {
@@ -261,12 +259,12 @@ func (q *Queries) MarkTaskCompleted(ctx context.Context, arg MarkTaskCompletedPa
 }
 
 const searchTasks = `-- name: SearchTasks :many
-SELECT tasks.id, tasks.list_id, tasks.title, tasks.task_desc, tasks.status, tasks.due_date, tasks.created_at, tasks.updated_at, tasks.priority, tasks.completed_at
+SELECT tasks.id, tasks.list_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.due_date, tasks.completed_at, tasks.created_at, tasks.updated_at
 FROM tasks
-JOIN todo_lists ON tasks.list_id = todo_lists.id
+JOIN todolists ON tasks.list_id = todolists.id
 WHERE tasks.list_id = $1
-  AND todo_lists.user_id = $2
-  AND (tasks.title ILIKE '%' || $3 || '%' OR tasks.task_desc ILIKE '%' || $3 || '%')
+  AND todolists.user_id = $2
+  AND (tasks.title ILIKE '%' || $3 || '%' OR tasks.description ILIKE '%' || $3 || '%')
 ORDER BY tasks.priority ASC NULLS LAST, tasks.due_date ASC
 `
 
@@ -289,13 +287,13 @@ func (q *Queries) SearchTasks(ctx context.Context, arg SearchTasksParams) ([]Tas
 			&i.ID,
 			&i.ListID,
 			&i.Title,
-			&i.TaskDesc,
+			&i.Description,
 			&i.Status,
+			&i.Priority,
 			&i.DueDate,
+			&i.CompletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.Priority,
-			&i.CompletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -309,25 +307,25 @@ func (q *Queries) SearchTasks(ctx context.Context, arg SearchTasksParams) ([]Tas
 
 const updateTask = `-- name: UpdateTask :one
 UPDATE tasks
-SET title = COALESCE($3, title),
-    task_desc = COALESCE($4, task_desc),
+SET title = COALESCE($3, tasks.title),
+    description = COALESCE($4, tasks.description),
     status = COALESCE($5, status),
     due_date = COALESCE($6, due_date),
     priority = COALESCE($7, priority),
     updated_at = CURRENT_TIMESTAMP,
     completed_at = COALESCE($8, completed_at)
-FROM todo_lists
+FROM todolists
 WHERE tasks.id = $1
-  AND tasks.list_id = todo_lists.id
-  AND todo_lists.user_id = $2
-RETURNING tasks.id, tasks.list_id, tasks.title, tasks.task_desc, tasks.status, tasks.due_date, tasks.created_at, tasks.updated_at, tasks.priority, tasks.completed_at
+  AND tasks.list_id = todolists.id
+  AND todolists.user_id = $2
+RETURNING tasks.id, tasks.list_id, tasks.title, tasks.description, tasks.status, tasks.priority, tasks.due_date, tasks.completed_at, tasks.created_at, tasks.updated_at
 `
 
 type UpdateTaskParams struct {
 	ID          pgtype.UUID        `json:"id"`
 	UserID      pgtype.UUID        `json:"user_id"`
 	Title       pgtype.Text        `json:"title"`
-	TaskDesc    pgtype.Text        `json:"task_desc"`
+	Description pgtype.Text        `json:"description"`
 	Status      pgtype.Text        `json:"status"`
 	DueDate     pgtype.Timestamptz `json:"due_date"`
 	Priority    pgtype.Int4        `json:"priority"`
@@ -339,7 +337,7 @@ func (q *Queries) UpdateTask(ctx context.Context, arg UpdateTaskParams) (Task, e
 		arg.ID,
 		arg.UserID,
 		arg.Title,
-		arg.TaskDesc,
+		arg.Description,
 		arg.Status,
 		arg.DueDate,
 		arg.Priority,
@@ -350,13 +348,13 @@ func (q *Queries) UpdateTask(ctx context.Context, arg UpdateTaskParams) (Task, e
 		&i.ID,
 		&i.ListID,
 		&i.Title,
-		&i.TaskDesc,
+		&i.Description,
 		&i.Status,
+		&i.Priority,
 		&i.DueDate,
+		&i.CompletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.Priority,
-		&i.CompletedAt,
 	)
 	return i, err
 }

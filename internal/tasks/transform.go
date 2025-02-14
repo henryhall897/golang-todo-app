@@ -2,9 +2,9 @@ package tasks
 
 import (
 	"fmt"
-	"golang-todo-app/internal/tasks/gen"
 
-	"golang-todo-app/internal/core/common"
+	"github.com/henryhall897/golang-todo-app/internal/core/common"
+	"github.com/henryhall897/golang-todo-app/internal/tasks/gen"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -19,19 +19,19 @@ func toDBCreateTask(params CreateTaskParams) (gen.CreateTaskParams, error) {
 
 	// Convert other fields using common utility functions
 	dbTitle := common.ToPgText(params.Title)
-	dbDescription := common.ToPgText(params.TaskDesc)
+	dbDescription := common.ToPgText(params.Description)
 	dbStatus := common.ToPgText(params.Status)
 	dbDueDate := common.ToPgTimestamptz(params.DueDate)
 	dbPriority := common.ToPgInt4(params.Priority)
 
 	// Return the transformed Task
 	return gen.CreateTaskParams{
-		ListID:   dbListID,
-		Title:    dbTitle,
-		TaskDesc: dbDescription,
-		Status:   dbStatus,
-		DueDate:  dbDueDate,
-		Priority: dbPriority,
+		ListID:      dbListID,
+		Title:       dbTitle,
+		Description: dbDescription,
+		Status:      dbStatus,
+		DueDate:     dbDueDate,
+		Priority:    dbPriority,
 	}, nil
 }
 
@@ -50,7 +50,7 @@ func toFullTask(dbTask gen.Task) (FullTask, error) {
 
 	// Convert fields using utility functions
 	title := common.FromPgText(dbTask.Title)
-	description := common.FromPgText(dbTask.TaskDesc)
+	description := common.FromPgText(dbTask.Description)
 	status := common.FromPgText(dbTask.Status)
 	dueDate := common.FromPgTimestamptz(dbTask.DueDate)
 	createdAt := dbTask.CreatedAt.Time
@@ -63,7 +63,7 @@ func toFullTask(dbTask gen.Task) (FullTask, error) {
 		ID:          id,
 		ListID:      listID,
 		Title:       title,
-		TaskDesc:    description,
+		Description: description,
 		Status:      status,
 		DueDate:     dueDate,
 		CreatedAt:   &createdAt,
@@ -101,7 +101,7 @@ func toDBUpdateTaskParams(params UpdateTaskParams) (gen.UpdateTaskParams, error)
 
 	// Use common conversion functions for all other fields
 	dbTitle := common.ToPgText(params.Title)
-	dbTaskDesc := common.ToPgText(params.TaskDesc)
+	dbTaskDesc := common.ToPgText(params.Description)
 	dbStatus := common.ToPgText(params.Status)
 	dbDueDate := common.ToPgTimestamptz(params.DueDate)
 	dbCompletedAt := common.ToPgTimestamptz(params.CompletedAt)
@@ -124,7 +124,7 @@ func toDBUpdateTaskParams(params UpdateTaskParams) (gen.UpdateTaskParams, error)
 		ID:          dbTaskID,
 		UserID:      dbUserID,
 		Title:       dbTitle,
-		TaskDesc:    dbTaskDesc,
+		Description: dbTaskDesc,
 		Status:      dbStatus,
 		DueDate:     dbDueDate,
 		Priority:    dbPriority,

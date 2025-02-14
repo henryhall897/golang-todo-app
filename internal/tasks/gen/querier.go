@@ -11,7 +11,6 @@ import (
 type Querier interface {
 	CreateTask(ctx context.Context, arg CreateTaskParams) (Task, error)
 	DeleteTasks(ctx context.Context, arg DeleteTasksParams) ([]Task, error)
-	// Reference user_id from todo_lists table
 	ListOverdueTasks(ctx context.Context, arg ListOverdueTasksParams) ([]Task, error)
 	ListTasks(ctx context.Context, arg ListTasksParams) ([]Task, error)
 	ListTasksByStatus(ctx context.Context, arg ListTasksByStatusParams) ([]Task, error)

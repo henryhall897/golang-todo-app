@@ -5,28 +5,29 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"golang-todo-app/internal/core/common"
-	"golang-todo-app/internal/users"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/henryhall897/golang-todo-app/internal/core/common"
+	"github.com/henryhall897/golang-todo-app/internal/users"
+
 	"github.com/google/uuid"
-	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/require"
 )
 
 // GenerateMockUsers creates a specified number of mock users with unique emails.
 func GenerateMockUsers(count int) []users.User {
+	now := time.Now()
 	userList := make([]users.User, count)
 	for i := 0; i < count; i++ {
 		userList[i] = users.User{
 			ID:        uuid.New(),
 			Name:      fmt.Sprintf("John %d Doe", i+1),
 			Email:     fmt.Sprintf("johndoe%d@example.com", i+1),
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
+			CreatedAt: &now,
+			UpdatedAt: &now,
 		}
 	}
 	return userList
@@ -38,11 +39,11 @@ func TestCreateUserHandler(t *testing.T) {
 
 	// Prepare mock store
 	mockStore := &MockStore{
-		CreateUserFunc: func(ctx context.Context, name, email string) (users.User, error) {
+		CreateUserFunc: func(ctx context.Context, params users.CreateUserParams) (users.User, error) {
 			return users.User{
 				ID:        sampleUser.ID,
-				Name:      name,
-				Email:     email,
+				Name:      params.Name,
+				Email:     params.Email,
 				CreatedAt: sampleUser.CreatedAt,
 				UpdatedAt: sampleUser.UpdatedAt,
 			}, nil
@@ -56,6 +57,10 @@ func TestCreateUserHandler(t *testing.T) {
 		Logger: mockLogger,
 	}
 
+	// Setup router with middleware and route
+	router := http.NewServeMux()
+	router.Handle("/users", MethodHandler("POST", handler.CreateUserHandler))
+
 	// Prepare request payload using the sample user's data
 	reqBody, err := json.Marshal(map[string]string{
 		"name":  sampleUser.Name,
@@ -66,12 +71,13 @@ func TestCreateUserHandler(t *testing.T) {
 	// Create a new HTTP request
 	req := httptest.NewRequest(http.MethodPost, "/users", bytes.NewBuffer(reqBody))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer valid-token") // Simulate valid token for auth
 
 	// Create a ResponseRecorder to record the response
 	rr := httptest.NewRecorder()
 
-	// Call the handler's method
-	handler.CreateUserHandler(rr, req)
+	// Send the request through the router (which includes middleware)
+	router.ServeHTTP(rr, req)
 
 	// Assert the status code
 	require.Equal(t, http.StatusCreated, rr.Code, "handler returned wrong status code")
@@ -110,18 +116,30 @@ func TestGetUserByIDHandler(t *testing.T) {
 		Logger: mockLogger,
 	}
 
-	// Sub-tests
+	// Define dynamic route handlers
+	dynamicHandlers := map[string]http.HandlerFunc{
+		"GET": handler.GetUserByIDHandler,
+	}
 
+	// Setup the router with dynamic route handling
+	router := http.NewServeMux()
+	router.Handle("/users/", DynamicRouteHandler(dynamicHandlers))
+
+	// Sub-tests
 	t.Run("Successful user retrieval", func(t *testing.T) {
 		// Create a new HTTP request with the sample user's ID
 		req := httptest.NewRequest(http.MethodGet, "/users/"+sampleUser.ID.String(), nil)
-		req = mux.SetURLVars(req, map[string]string{"id": sampleUser.ID.String()})
 
 		// Create a ResponseRecorder to record the response
 		rr := httptest.NewRecorder()
 
-		// Call the handler's method
-		handler.GetUserByIDHandler(rr, req)
+		// Send the request through the router (which includes dynamic route handling)
+		router.ServeHTTP(rr, req)
+
+		// Log or assert the full response body if the status code is not what you expect
+		if rr.Code != http.StatusOK {
+			t.Logf("Response body: %s", rr.Body.String())
+		}
 
 		// Assert the status code
 		require.Equal(t, http.StatusOK, rr.Code, "handler returned wrong status code")
@@ -141,13 +159,12 @@ func TestGetUserByIDHandler(t *testing.T) {
 		// Create a new HTTP request with a non-existent user ID
 		nonExistentID := uuid.New()
 		req := httptest.NewRequest(http.MethodGet, "/users/"+nonExistentID.String(), nil)
-		req = mux.SetURLVars(req, map[string]string{"id": nonExistentID.String()})
 
 		// Create a ResponseRecorder to record the response
 		rr := httptest.NewRecorder()
 
-		// Call the handler's method
-		handler.GetUserByIDHandler(rr, req)
+		// Send the request through the router
+		router.ServeHTTP(rr, req)
 
 		// Assert the status code
 		require.Equal(t, http.StatusNotFound, rr.Code, "handler returned wrong status code")
@@ -156,13 +173,12 @@ func TestGetUserByIDHandler(t *testing.T) {
 	t.Run("Invalid user ID format", func(t *testing.T) {
 		// Create a new HTTP request with an invalid user ID
 		req := httptest.NewRequest(http.MethodGet, "/users/invalid-uuid", nil)
-		req = mux.SetURLVars(req, map[string]string{"id": "invalid-uuid"})
 
 		// Create a ResponseRecorder to record the response
 		rr := httptest.NewRecorder()
 
-		// Call the handler's method
-		handler.GetUserByIDHandler(rr, req)
+		// Send the request through the router
+		router.ServeHTTP(rr, req)
 
 		// Assert the status code
 		require.Equal(t, http.StatusBadRequest, rr.Code, "handler returned wrong status code")
@@ -236,17 +252,20 @@ func TestGetUserByEmailHandler(t *testing.T) {
 		Logger: mockLogger,
 	}
 
-	// Sub-tests
+	// Setup the router and register the route
+	router := http.NewServeMux()
+	router.Handle("/users/email", http.HandlerFunc(handler.GetUserByEmailHandler))
 
+	// Sub-tests
 	t.Run("Successful user retrieval", func(t *testing.T) {
-		// Create a new HTTP request with the sample user's email
+		// Create a request with the sample user's email
 		req := httptest.NewRequest(http.MethodGet, "/users/email?email="+sampleUser.Email, nil)
 
 		// Create a ResponseRecorder to record the response
 		rr := httptest.NewRecorder()
 
-		// Call the handler's method
-		handler.GetUserByEmailHandler(rr, req)
+		// Send the request through the router
+		router.ServeHTTP(rr, req)
 
 		// Assert the status code
 		require.Equal(t, http.StatusOK, rr.Code, "handler returned wrong status code")
@@ -263,28 +282,28 @@ func TestGetUserByEmailHandler(t *testing.T) {
 	})
 
 	t.Run("User not found", func(t *testing.T) {
-		// Create a new HTTP request with a non-existent email
+		// Create a request with a non-existent email
 		req := httptest.NewRequest(http.MethodGet, "/users/email?email=nonexistent@example.com", nil)
 
 		// Create a ResponseRecorder to record the response
 		rr := httptest.NewRecorder()
 
-		// Call the handler's method
-		handler.GetUserByEmailHandler(rr, req)
+		// Send the request through the router
+		router.ServeHTTP(rr, req)
 
 		// Assert the status code
 		require.Equal(t, http.StatusNotFound, rr.Code, "handler returned wrong status code")
 	})
 
-	t.Run("Missing email query parameter", func(t *testing.T) {
-		// Create a new HTTP request without the email parameter
+	t.Run("Missing email parameter", func(t *testing.T) {
+		// Create a request without the email parameter
 		req := httptest.NewRequest(http.MethodGet, "/users/email", nil)
 
 		// Create a ResponseRecorder to record the response
 		rr := httptest.NewRecorder()
 
-		// Call the handler's method
-		handler.GetUserByEmailHandler(rr, req)
+		// Send the request through the router
+		router.ServeHTTP(rr, req)
 
 		// Assert the status code
 		require.Equal(t, http.StatusBadRequest, rr.Code, "handler returned wrong status code")
@@ -297,12 +316,12 @@ func TestUpdateUserHandler(t *testing.T) {
 
 	// Prepare mock store
 	mockStore := &MockStore{
-		UpdateUserFunc: func(ctx context.Context, id uuid.UUID, name, email string) (users.User, error) {
-			if id == sampleUser.ID {
+		UpdateUserFunc: func(ctx context.Context, params users.UpdateUserParams) (users.User, error) {
+			if params.ID == sampleUser.ID {
 				// Simulate updating the user
 				updatedUser := sampleUser
-				updatedUser.Name = name
-				updatedUser.Email = email
+				updatedUser.Name = *params.Name
+				updatedUser.Email = *params.Email
 				return updatedUser, nil
 			}
 			return users.User{}, common.ErrNotFound
@@ -315,6 +334,15 @@ func TestUpdateUserHandler(t *testing.T) {
 		Store:  mockStore,
 		Logger: mockLogger,
 	}
+
+	// Define dynamic route handlers
+	dynamicHandlers := map[string]http.HandlerFunc{
+		"PUT": handler.UpdateUserHandler,
+	}
+
+	// Setup the router with dynamic route handling
+	router := http.NewServeMux()
+	router.Handle("/users/", DynamicRouteHandler(dynamicHandlers))
 
 	// Sub-tests
 
@@ -333,13 +361,12 @@ func TestUpdateUserHandler(t *testing.T) {
 		// Create a new HTTP request with the sample user's ID and update payload
 		req := httptest.NewRequest(http.MethodPut, "/users/"+sampleUser.ID.String(), bytes.NewBuffer(reqBody))
 		req.Header.Set("Content-Type", "application/json")
-		req = mux.SetURLVars(req, map[string]string{"id": sampleUser.ID.String()})
 
 		// Create a ResponseRecorder to record the response
 		rr := httptest.NewRecorder()
 
-		// Call the handler's method
-		handler.UpdateUserHandler(rr, req)
+		// Send the request through the router
+		router.ServeHTTP(rr, req)
 
 		// Assert the status code
 		require.Equal(t, http.StatusOK, rr.Code, "handler returned wrong status code")
@@ -367,11 +394,10 @@ func TestUpdateUserHandler(t *testing.T) {
 		// Create a new HTTP request with the non-existent user ID and valid request body
 		req := httptest.NewRequest(http.MethodPut, "/users/"+nonExistentID.String(), bytes.NewBuffer(reqBody))
 		req.Header.Set("Content-Type", "application/json")
-		req = mux.SetURLVars(req, map[string]string{"id": nonExistentID.String()})
 
-		// Act: Call the handler's method
+		// Act: Send the request through the router
 		rr := httptest.NewRecorder()
-		handler.UpdateUserHandler(rr, req)
+		router.ServeHTTP(rr, req)
 
 		// Assert: Check that the response status code is 404 Not Found
 		require.Equal(t, http.StatusNotFound, rr.Code, "handler returned wrong status code")
@@ -381,13 +407,10 @@ func TestUpdateUserHandler(t *testing.T) {
 		// Create a new HTTP request with an invalid user ID
 		req := httptest.NewRequest(http.MethodPut, "/users/invalid-uuid", nil)
 		req.Header.Set("Content-Type", "application/json")
-		req = mux.SetURLVars(req, map[string]string{"id": "invalid-uuid"})
 
-		// Create a ResponseRecorder to record the response
+		// Send the request through the router
 		rr := httptest.NewRecorder()
-
-		// Call the handler's method
-		handler.UpdateUserHandler(rr, req)
+		router.ServeHTTP(rr, req)
 
 		// Assert the status code
 		require.Equal(t, http.StatusBadRequest, rr.Code, "handler returned wrong status code")
@@ -397,13 +420,10 @@ func TestUpdateUserHandler(t *testing.T) {
 		// Create a new HTTP request with invalid JSON body
 		req := httptest.NewRequest(http.MethodPut, "/users/"+sampleUser.ID.String(), bytes.NewBuffer([]byte("invalid json")))
 		req.Header.Set("Content-Type", "application/json")
-		req = mux.SetURLVars(req, map[string]string{"id": sampleUser.ID.String()})
 
-		// Create a ResponseRecorder to record the response
+		// Send the request through the router
 		rr := httptest.NewRecorder()
-
-		// Call the handler's method
-		handler.UpdateUserHandler(rr, req)
+		router.ServeHTTP(rr, req)
 
 		// Assert the status code
 		require.Equal(t, http.StatusBadRequest, rr.Code, "handler returned wrong status code")
@@ -431,18 +451,26 @@ func TestDeleteUserHandler(t *testing.T) {
 		Logger: mockLogger,
 	}
 
+	// Define dynamic route handlers
+	dynamicHandlers := map[string]http.HandlerFunc{
+		"DELETE": handler.DeleteUserHandler,
+	}
+
+	// Setup the router with dynamic route handling
+	router := http.NewServeMux()
+	router.Handle("/users/", DynamicRouteHandler(dynamicHandlers))
+
 	// Sub-tests
 
 	t.Run("Successful user deletion", func(t *testing.T) {
 		// Create a new HTTP request with the sample user's ID
 		req := httptest.NewRequest(http.MethodDelete, "/users/"+sampleUser.ID.String(), nil)
-		req = mux.SetURLVars(req, map[string]string{"id": sampleUser.ID.String()})
 
 		// Create a ResponseRecorder to record the response
 		rr := httptest.NewRecorder()
 
-		// Call the handler's method
-		handler.DeleteUserHandler(rr, req)
+		// Send the request through the router
+		router.ServeHTTP(rr, req)
 
 		// Assert the status code
 		require.Equal(t, http.StatusNoContent, rr.Code, "handler returned wrong status code")
@@ -452,13 +480,12 @@ func TestDeleteUserHandler(t *testing.T) {
 		// Create a new HTTP request with a non-existent user ID
 		nonExistentID := uuid.New()
 		req := httptest.NewRequest(http.MethodDelete, "/users/"+nonExistentID.String(), nil)
-		req = mux.SetURLVars(req, map[string]string{"id": nonExistentID.String()})
 
 		// Create a ResponseRecorder to record the response
 		rr := httptest.NewRecorder()
 
-		// Call the handler's method
-		handler.DeleteUserHandler(rr, req)
+		// Send the request through the router
+		router.ServeHTTP(rr, req)
 
 		// Assert the status code
 		require.Equal(t, http.StatusNotFound, rr.Code, "handler returned wrong status code")
@@ -467,13 +494,12 @@ func TestDeleteUserHandler(t *testing.T) {
 	t.Run("Invalid user ID format", func(t *testing.T) {
 		// Create a new HTTP request with an invalid user ID
 		req := httptest.NewRequest(http.MethodDelete, "/users/invalid-uuid", nil)
-		req = mux.SetURLVars(req, map[string]string{"id": "invalid-uuid"})
 
 		// Create a ResponseRecorder to record the response
 		rr := httptest.NewRecorder()
 
-		// Call the handler's method
-		handler.DeleteUserHandler(rr, req)
+		// Send the request through the router
+		router.ServeHTTP(rr, req)
 
 		// Assert the status code
 		require.Equal(t, http.StatusBadRequest, rr.Code, "handler returned wrong status code")
@@ -487,13 +513,12 @@ func TestDeleteUserHandler(t *testing.T) {
 
 		// Create a new HTTP request with the sample user's ID
 		req := httptest.NewRequest(http.MethodDelete, "/users/"+sampleUser.ID.String(), nil)
-		req = mux.SetURLVars(req, map[string]string{"id": sampleUser.ID.String()})
 
 		// Create a ResponseRecorder to record the response
 		rr := httptest.NewRecorder()
 
-		// Call the handler's method
-		handler.DeleteUserHandler(rr, req)
+		// Send the request through the router
+		router.ServeHTTP(rr, req)
 
 		// Assert the status code
 		require.Equal(t, http.StatusInternalServerError, rr.Code, "handler returned wrong status code")

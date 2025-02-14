@@ -11,28 +11,29 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # Copy the rest of the application source code
-COPY . .
+COPY . ./
+
+# Define build arguments for OS and architecture
+ARG GOOS=linux
+ARG GOARCH=amd64
 
 # Build the Go application with static linking
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o main ./cmd/todo/main.go
+RUN CGO_ENABLED=0 GOOS=${GOOS} GOARCH=${GOARCH} go build -o todo ./cmd/todo/main.go
 
-# Stage 2: Create a minimal image to run the application
-FROM alpine:latest
-
-# Install certificates (if your application uses HTTPS)
-RUN apk --no-cache add ca-certificates
+# Stage 2: Create a minimal image to run the application using Distroless
+FROM gcr.io/distroless/static-debian12
 
 # Set the working directory inside the container
 WORKDIR /app
 
 # Copy the statically linked binary from the builder stage
-COPY --from=builder /app/main .
+COPY --from=builder /app/todo .
 
 # Copy the migrations directory into the container
 COPY --from=builder /app/migrations ./migrations
 
-# Expose the application port
-EXPOSE 8080
+# Explicitly disable Docker health checks
+HEALTHCHECK NONE
 
 # Run the application
-CMD ["./main"]
+CMD ["/app/todo"]

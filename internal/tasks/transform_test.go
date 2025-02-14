@@ -1,10 +1,11 @@
 package tasks
 
 import (
-	"golang-todo-app/internal/core/common"
-	"golang-todo-app/internal/tasks/gen"
 	"testing"
 	"time"
+
+	"github.com/henryhall897/golang-todo-app/internal/core/common"
+	"github.com/henryhall897/golang-todo-app/internal/tasks/gen"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -18,12 +19,12 @@ func TestToDBCreateTask(t *testing.T) {
 
 	// Initialize CreateTaskParams
 	originalTask := CreateTaskParams{
-		ListID:   validUUID,
-		Title:    common.Ptr("Sample Task Title"),
-		TaskDesc: common.Ptr("This is a sample task description."),
-		Status:   common.Ptr("pending"),
-		DueDate:  &validTime,
-		Priority: 1,
+		ListID:      validUUID,
+		Title:       common.Ptr("Sample Task Title"),
+		Description: common.Ptr("This is a sample task description."),
+		Status:      common.Ptr("pending"),
+		DueDate:     &validTime,
+		Priority:    1,
 	}
 
 	// Act
@@ -35,7 +36,7 @@ func TestToDBCreateTask(t *testing.T) {
 	// Validate that the transformed fields match the original ones
 	require.Equal(t, originalTask.ListID[:], dbTask.ListID.Bytes[:])
 	require.Equal(t, *originalTask.Title, dbTask.Title.String)
-	require.Equal(t, *originalTask.TaskDesc, dbTask.TaskDesc.String)
+	require.Equal(t, *originalTask.Description, dbTask.Description.String)
 	require.Equal(t, *originalTask.Status, dbTask.Status.String)
 	require.WithinDuration(t, *originalTask.DueDate, dbTask.DueDate.Time, time.Second)
 	require.Equal(t, originalTask.Priority, dbTask.Priority.Int32)
@@ -51,7 +52,7 @@ func TestToFullTask(t *testing.T) {
 		ID:          pgtype.UUID{Bytes: validUUID, Valid: true},
 		ListID:      pgtype.UUID{Bytes: validUUID, Valid: true},
 		Title:       pgtype.Text{String: "Sample Task Title", Valid: true},
-		TaskDesc:    pgtype.Text{String: "This is a sample task description.", Valid: true},
+		Description: pgtype.Text{String: "This is a sample task description.", Valid: true},
 		Status:      pgtype.Text{String: "pending", Valid: true},
 		DueDate:     pgtype.Timestamptz{Time: validTime, Valid: true},
 		CreatedAt:   pgtype.Timestamptz{Time: validTime, Valid: true},
@@ -68,7 +69,7 @@ func TestToFullTask(t *testing.T) {
 	require.Equal(t, validUUID, fullTask.ID)
 	require.Equal(t, validUUID, fullTask.ListID)
 	require.Equal(t, "Sample Task Title", *fullTask.Title)
-	require.Equal(t, "This is a sample task description.", *fullTask.TaskDesc)
+	require.Equal(t, "This is a sample task description.", *fullTask.Description)
 	require.Equal(t, "pending", *fullTask.Status)
 	require.WithinDuration(t, validTime, *fullTask.DueDate, time.Second)
 	require.WithinDuration(t, validTime, *fullTask.CreatedAt, time.Second)
@@ -80,7 +81,7 @@ func TestToFullTask(t *testing.T) {
 	require.Equal(t, validUUID, fullTask.ID)
 	require.Equal(t, validUUID, fullTask.ListID)
 	require.Equal(t, "Sample Task Title", *fullTask.Title)
-	require.Equal(t, "This is a sample task description.", *fullTask.TaskDesc)
+	require.Equal(t, "This is a sample task description.", *fullTask.Description)
 	require.Equal(t, "pending", *fullTask.Status)
 	require.Equal(t, validTime, *fullTask.DueDate)
 	require.Equal(t, validTime, *fullTask.CreatedAt)
@@ -98,7 +99,7 @@ func TestToFullTaskList(t *testing.T) {
 			ID:          pgtype.UUID{Bytes: validUUID, Valid: true},
 			ListID:      pgtype.UUID{Bytes: validUUID, Valid: true},
 			Title:       pgtype.Text{String: "Task 1", Valid: true},
-			TaskDesc:    pgtype.Text{String: "This is task number 1", Valid: true},
+			Description: pgtype.Text{String: "This is task number 1", Valid: true},
 			Status:      pgtype.Text{String: "pending", Valid: true},
 			DueDate:     pgtype.Timestamptz{Time: validTime, Valid: true},
 			CreatedAt:   pgtype.Timestamptz{Time: validTime, Valid: true},
@@ -110,7 +111,7 @@ func TestToFullTaskList(t *testing.T) {
 			ID:          pgtype.UUID{Bytes: validUUID, Valid: true},
 			ListID:      pgtype.UUID{Bytes: validUUID, Valid: true},
 			Title:       pgtype.Text{String: "Task 2", Valid: true},
-			TaskDesc:    pgtype.Text{String: "This is task number 2", Valid: true},
+			Description: pgtype.Text{String: "This is task number 2", Valid: true},
 			Status:      pgtype.Text{String: "pending", Valid: true},
 			DueDate:     pgtype.Timestamptz{Time: validTime, Valid: true},
 			CreatedAt:   pgtype.Timestamptz{Time: validTime, Valid: true},
@@ -132,7 +133,7 @@ func TestToFullTaskList(t *testing.T) {
 		require.Equal(t, genTasks[i].ID.Bytes[:], fullTasks[i].ID[:])                               // Compare the bytes correctly
 		require.Equal(t, genTasks[i].ListID.Bytes[:], fullTasks[i].ListID[:])                       // Compare ListID bytes
 		require.Equal(t, genTasks[i].Title.String, *fullTasks[i].Title)                             // Compare Title
-		require.Equal(t, genTasks[i].TaskDesc.String, *fullTasks[i].TaskDesc)                       // Compare TaskDesc
+		require.Equal(t, genTasks[i].Description.String, *fullTasks[i].Description)                 // Compare TaskDesc
 		require.Equal(t, genTasks[i].Status.String, *fullTasks[i].Status)                           // Compare Status
 		require.WithinDuration(t, genTasks[i].DueDate.Time, *fullTasks[i].DueDate, time.Second)     // Compare DueDate
 		require.WithinDuration(t, genTasks[i].CreatedAt.Time, *fullTasks[i].CreatedAt, time.Second) // Compare CreatedAt
@@ -152,7 +153,7 @@ func TestToDBUpdateTaskParams(t *testing.T) {
 
 	priority := int32(3)
 	title := "Sample Task Title"
-	taskDesc := "Sample Task Description"
+	Description := "Sample Task Description"
 	status := "pending"
 
 	params := UpdateTaskParams{
@@ -160,7 +161,7 @@ func TestToDBUpdateTaskParams(t *testing.T) {
 		ListID:      listID,
 		UserID:      userID,
 		Title:       &title,
-		TaskDesc:    &taskDesc,
+		Description: &Description,
 		Status:      &status,
 		DueDate:     &now,
 		Priority:    &priority,
@@ -174,13 +175,13 @@ func TestToDBUpdateTaskParams(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify the transformation was done correctly
-	require.Equal(t, taskID[:], dbParams.ID.Bytes[:])                     // Check task ID
-	require.Equal(t, "Sample Task Title", dbParams.Title.String)          // Check title
-	require.Equal(t, "Sample Task Description", dbParams.TaskDesc.String) // Check task description
-	require.Equal(t, "pending", dbParams.Status.String)                   // Check status
-	require.WithinDuration(t, now, dbParams.DueDate.Time, time.Second)    // Check due date
-	require.Equal(t, priority, dbParams.Priority.Int32)                   // Check priority
-	require.False(t, dbParams.CompletedAt.Valid)                          // Check that CompletedAt is not valid
+	require.Equal(t, taskID[:], dbParams.ID.Bytes[:])                        // Check task ID
+	require.Equal(t, "Sample Task Title", dbParams.Title.String)             // Check title
+	require.Equal(t, "Sample Task Description", dbParams.Description.String) // Check task description
+	require.Equal(t, "pending", dbParams.Status.String)                      // Check status
+	require.WithinDuration(t, now, dbParams.DueDate.Time, time.Second)       // Check due date
+	require.Equal(t, priority, dbParams.Priority.Int32)                      // Check priority
+	require.False(t, dbParams.CompletedAt.Valid)                             // Check that CompletedAt is not valid
 }
 
 func TestToMarkTaskCompletedParams(t *testing.T) {

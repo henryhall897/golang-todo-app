@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"golang-todo-app/internal/tasks/gen"
 	"time"
+
+	"github.com/henryhall897/golang-todo-app/internal/tasks/gen"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -22,16 +23,16 @@ func New(pool *pgxpool.Pool) *Store {
 }
 
 // CreateTask inserts a new task into the database and returns the created Task.
-func (s *Store) CreateTask(ctx context.Context, lid uuid.UUID, title string, desc, status *string, due time.Time, prio int32) (FullTask, error) {
+func (s *Store) CreateTask(ctx context.Context, lid uuid.UUID, title string, description, status *string, due time.Time, prio int32) (FullTask, error) {
 	query := gen.New(s.pool)
 
 	params := CreateTaskParams{
-		ListID:   lid,
-		Title:    &title,
-		TaskDesc: desc,
-		Status:   status,
-		DueDate:  &due,
-		Priority: prio,
+		ListID:      lid,
+		Title:       &title,
+		Description: description,
+		Status:      status,
+		DueDate:     &due,
+		Priority:    prio,
 	}
 	// Transform the Go struct to a database-compatible struct
 	dbTask, err := toDBCreateTask(params)
@@ -169,10 +170,16 @@ func (s *Store) MarkTaskCompleted(ctx context.Context, params UpdateTaskParams) 
 	// Ensure rollback on failure
 	defer func() {
 		if p := recover(); p != nil {
-			tx.Rollback(ctx)
+			if err := tx.Rollback(ctx); err != nil && err != pgx.ErrTxClosed {
+				fmt.Printf("Transaction rollback failed: %v\n", err)
+			}
+
 			panic(p) // Re-panic after rollback
 		} else if err != nil {
-			tx.Rollback(ctx)
+			if err := tx.Rollback(ctx); err != nil && err != pgx.ErrTxClosed {
+				fmt.Printf("Transaction rollback failed: %v\n", err)
+			}
+
 		}
 	}()
 
@@ -287,10 +294,16 @@ func (s *Store) UpdateTaskPriority(ctx context.Context, params UpdateTaskParams)
 	// Ensure rollback on failure
 	defer func() {
 		if p := recover(); p != nil {
-			tx.Rollback(ctx)
+			if err := tx.Rollback(ctx); err != nil && err != pgx.ErrTxClosed {
+				fmt.Printf("Transaction rollback failed: %v\n", err)
+			}
+
 			panic(p) // Re-panic after rollback
 		} else if err != nil {
-			tx.Rollback(ctx)
+			if err := tx.Rollback(ctx); err != nil && err != pgx.ErrTxClosed {
+				fmt.Printf("Transaction rollback failed: %v\n", err)
+			}
+
 		}
 	}()
 

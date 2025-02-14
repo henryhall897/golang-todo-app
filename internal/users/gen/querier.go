@@ -22,7 +22,7 @@ type Querier interface {
 	// List all users with pagination
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error)
 	// Update user details
-	UpdateUser(ctx context.Context, arg UpdateUserParams) error
+	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
 }
 
 var _ Querier = (*Queries)(nil)

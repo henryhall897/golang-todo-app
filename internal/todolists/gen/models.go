@@ -12,22 +12,22 @@ type Task struct {
 	ID          pgtype.UUID        `json:"id"`
 	ListID      pgtype.UUID        `json:"list_id"`
 	Title       string             `json:"title"`
-	TaskDesc    pgtype.Text        `json:"task_desc"`
+	Description pgtype.Text        `json:"description"`
 	Status      pgtype.Text        `json:"status"`
+	Priority    pgtype.Int4        `json:"priority"`
 	DueDate     pgtype.Timestamptz `json:"due_date"`
+	CompletedAt pgtype.Timestamptz `json:"completed_at"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-	Priority    pgtype.Int4        `json:"priority"`
-	CompletedAt pgtype.Timestamptz `json:"completed_at"`
 }
 
-type TodoList struct {
-	ID        pgtype.UUID        `json:"id"`
-	UserID    pgtype.UUID        `json:"user_id"`
-	Name      string             `json:"name"`
-	TodoDesc  pgtype.Text        `json:"todo_desc"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+type Todolist struct {
+	ID          pgtype.UUID        `json:"id"`
+	UserID      pgtype.UUID        `json:"user_id"`
+	Title       string             `json:"title"`
+	Description pgtype.Text        `json:"description"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
 type User struct {

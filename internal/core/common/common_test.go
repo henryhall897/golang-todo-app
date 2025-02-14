@@ -273,3 +273,51 @@ func TestFromPgInt4(t *testing.T) {
 		require.Nil(t, result)
 	})
 }
+
+func TestToPgUUIDArray(t *testing.T) {
+	// Test valid UUIDs
+	t.Run("Valid UUID Array", func(t *testing.T) {
+		// Arrange: Create multiple valid UUIDs
+		validUUIDs := []uuid.UUID{uuid.New(), uuid.New(), uuid.New()}
+
+		// Act: Call ToPgUUIDArray to convert the valid UUIDs
+		result, err := ToPgUUIDArray(validUUIDs)
+
+		// Assert: Ensure there is no error and the array is correctly transformed
+		require.NoError(t, err)
+		require.Len(t, result, len(validUUIDs))
+
+		// Check each transformed UUID
+		for i, pgUUID := range result {
+			require.True(t, pgUUID.Valid)
+			require.Equal(t, validUUIDs[i][:], pgUUID.Bytes[:])
+		}
+	})
+
+	// Test empty UUID array (should return nil)
+	t.Run("Empty UUID Array", func(t *testing.T) {
+		// Arrange: Create an empty UUID slice
+		emptyUUIDs := []uuid.UUID{}
+
+		// Act: Call ToPgUUIDArray with an empty slice
+		result, err := ToPgUUIDArray(emptyUUIDs)
+
+		// Assert: Ensure there is no error and the result is nil
+		require.NoError(t, err)
+		require.Nil(t, result)
+	})
+
+	// Test invalid UUID in the array (contains uuid.Nil)
+	t.Run("Invalid UUID in Array", func(t *testing.T) {
+		// Arrange: Create a slice with one valid UUID and one invalid (nil) UUID
+		invalidUUIDs := []uuid.UUID{uuid.New(), uuid.Nil}
+
+		// Act: Call ToPgUUIDArray with the invalid array
+		result, err := ToPgUUIDArray(invalidUUIDs)
+
+		// Assert: Ensure there is an error and result is nil
+		require.Error(t, err)
+		require.Nil(t, result)
+		require.Equal(t, "invalid UUID in array: invalid UUID: cannot be nil", err.Error())
+	})
+}

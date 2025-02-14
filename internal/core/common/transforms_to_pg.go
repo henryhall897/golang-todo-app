@@ -52,3 +52,22 @@ func ToPgInt4(i int32) pgtype.Int4 {
 		Valid: true,
 	}
 }
+
+// ToPgUUIDArray converts a slice of uuid.UUID to a slice of pgtype.UUID.
+func ToPgUUIDArray(ids []uuid.UUID) ([]pgtype.UUID, error) {
+	if len(ids) == 0 {
+		return nil, nil // Returning nil represents NULL for deleting all
+	}
+
+	dbIDs := make([]pgtype.UUID, len(ids))
+
+	for i, id := range ids {
+		pgUUID, err := ToPgUUID(id)
+		if err != nil {
+			return nil, fmt.Errorf("invalid UUID in array: %w", err)
+		}
+		dbIDs[i] = pgUUID
+	}
+
+	return dbIDs, nil
+}

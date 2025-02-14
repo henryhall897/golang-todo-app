@@ -6,12 +6,11 @@ import (
 	"errors"
 	"net/http"
 
-	"golang-todo-app/internal/core/common"
-	"golang-todo-app/internal/core/logging"
-	"golang-todo-app/internal/users"
+	"github.com/henryhall897/golang-todo-app/internal/core/common"
+	"github.com/henryhall897/golang-todo-app/internal/core/logging"
+	"github.com/henryhall897/golang-todo-app/internal/users"
 
 	"github.com/google/uuid"
-	"github.com/gorilla/mux"
 )
 
 type UserHandler struct {
@@ -32,8 +31,13 @@ func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	newUser := users.CreateUserParams{
+		Name:  req.Name,
+		Email: req.Email,
+	}
+
 	// Call store to create the user
-	user, err := h.Store.CreateUser(context.Background(), req.Name, req.Email)
+	user, err := h.Store.CreateUser(context.Background(), newUser)
 	if err != nil {
 		h.Logger.Errorw("Failed to create user", "error", err)
 		http.Error(w, "Failed to create user", http.StatusInternalServerError)
@@ -43,30 +47,40 @@ func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) 
 	// Return the created user
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(user)
+	if err := json.NewEncoder(w).Encode(user); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
 }
 
-// GetUserByIDHandler handles retrieving a user by ID
 func (h *UserHandler) GetUserByIDHandler(w http.ResponseWriter, r *http.Request) {
-	// Extract user ID from path parameters
-	vars := mux.Vars(r)
-	id, err := uuid.Parse(vars["id"])
+	// Extract userID from context
+	userIDStr, ok := r.Context().Value(userIDKey).(string)
+	if !ok {
+		http.Error(w, "User ID not found", http.StatusBadRequest)
+		return
+	}
+
+	// Convert userID to UUID and fetch the user
+	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
 		http.Error(w, "Invalid user ID", http.StatusBadRequest)
 		return
 	}
 
-	// Call store to get the user
-	user, err := h.Store.GetUserByID(context.Background(), id)
+	user, err := h.Store.GetUserByID(r.Context(), userID)
 	if err != nil {
-		h.Logger.Errorw("Failed to get user", "error", err)
+		h.Logger.Errorw("Failed to get user by ID", "error", err)
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	}
 
-	// Return the user
+	// Return the user as JSON
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(user)
+	if err := json.NewEncoder(w).Encode(user); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
 }
 
 // GetUserByEmailHandler handles retrieving a user by email
@@ -74,12 +88,12 @@ func (h *UserHandler) GetUserByEmailHandler(w http.ResponseWriter, r *http.Reque
 	// Extract email from query parameters
 	email := r.URL.Query().Get("email")
 	if email == "" {
-		http.Error(w, "Email is required", http.StatusBadRequest)
+		http.Error(w, "Email parameter is required", http.StatusBadRequest)
 		return
 	}
 
 	// Call store to get the user by email
-	user, err := h.Store.GetUserByEmail(context.Background(), email)
+	user, err := h.Store.GetUserByEmail(r.Context(), email)
 	if errors.Is(err, common.ErrNotFound) {
 		h.Logger.Errorw("User not found", "email", email)
 		http.Error(w, "User not found", http.StatusNotFound)
@@ -90,56 +104,88 @@ func (h *UserHandler) GetUserByEmailHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Return the user
+	// Return the user as JSON
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(user)
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(user); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
 }
 
 // ListUsersHandler handles retrieving all users
 func (h *UserHandler) ListUsersHandler(w http.ResponseWriter, r *http.Request) {
-	// Call store to list users
-	users, err := h.Store.ListUsers(context.Background(), users.ListUsersParams{})
+	// Call store to list users using the request's context
+	userList, err := h.Store.ListUsers(r.Context(), users.ListUsersParams{})
 	if err != nil {
-		h.Logger.Errorw("Failed to list users", "error", err)
+		h.Logger.Errorw("Failed to list users", "error", err, "path", r.URL.Path, "method", r.Method)
 		http.Error(w, "Failed to list users", http.StatusInternalServerError)
 		return
 	}
 
-	// Return the list of users
+	// Handle empty response case
+	if len(userList) == 0 {
+		userList = []users.User{}
+	}
+
+	// Set response headers and write status code
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(users)
+	w.WriteHeader(http.StatusOK)
+
+	// Encode and send the response
+	if err := json.NewEncoder(w).Encode(userList); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
 }
 
 // UpdateUserHandler handles updating a user's information
 func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
-	// Extract user ID from the path parameters
-	vars := mux.Vars(r)
-	id, err := uuid.Parse(vars["id"])
-	if err != nil {
-		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+	// Extract user ID from context
+	userIDStr, ok := r.Context().Value(userIDKey).(string)
+	if !ok || userIDStr == "" {
+		http.Error(w, "User ID not found", http.StatusBadRequest)
 		return
 	}
 
-	// Parse request body to extract the name and email
+	// Parse the user ID
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		http.Error(w, "Invalid user ID format", http.StatusBadRequest)
+		return
+	}
+
+	// Limit request body size to 1MB for security
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
+	// Parse the request body
 	var payload struct {
-		Name  string `json:"name"`
-		Email string `json:"email"`
+		Name  *string `json:"name,omitempty"`
+		Email *string `json:"email,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		h.Logger.Errorw("Invalid request body", "error", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	// Validate input fields
-	if payload.Name == "" || payload.Email == "" {
-		http.Error(w, "Name and email are required", http.StatusBadRequest)
+	// Ensure at least one field is provided
+	if payload.Name == nil && payload.Email == nil {
+		http.Error(w, "At least one field (name or email) must be provided", http.StatusBadRequest)
 		return
 	}
 
-	// Call store to update the user
-	updatedUser, err := h.Store.UpdateUser(context.Background(), id, payload.Name, payload.Email)
+	// Prepare update parameters
+	updateUserParams := users.UpdateUserParams{
+		ID:    userID,
+		Name:  payload.Name,
+		Email: payload.Email,
+	}
+
+	// Call the store to update the user
+	updatedUser, err := h.Store.UpdateUser(r.Context(), updateUserParams)
 	if errors.Is(err, common.ErrNotFound) {
-		h.Logger.Errorw("User not found", "id", id)
+		h.Logger.Errorw("User not found", "userID", userID)
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	} else if err != nil {
@@ -150,23 +196,33 @@ func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) 
 
 	// Return the updated user
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(updatedUser)
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(updatedUser); err != nil {
+		h.Logger.Errorw("Failed to encode response", "error", err)
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
 }
 
 // DeleteUserHandler handles deleting a user by ID
 func (h *UserHandler) DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
-	// Extract user ID from the path parameters
-	vars := mux.Vars(r)
-	id, err := uuid.Parse(vars["id"])
+	// Extract user ID from the context
+	userIDStr, ok := r.Context().Value(userIDKey).(string)
+	if !ok || userIDStr == "" {
+		http.Error(w, "User ID not found", http.StatusBadRequest)
+		return
+	}
+
+	// Parse the user ID
+	id, err := uuid.Parse(userIDStr)
 	if err != nil {
-		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		http.Error(w, "Invalid user ID format", http.StatusBadRequest)
 		return
 	}
 
 	// Call store to delete the user
-	err = h.Store.DeleteUser(context.Background(), id)
+	err = h.Store.DeleteUser(r.Context(), id)
 	if errors.Is(err, common.ErrNotFound) {
-		h.Logger.Errorw("User not found", "id", id)
+		h.Logger.Errorw("User not found", "userID", id)
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	} else if err != nil {
@@ -175,6 +231,6 @@ func (h *UserHandler) DeleteUserHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Return a success response
+	// Return a success response (204 No Content)
 	w.WriteHeader(http.StatusNoContent)
 }

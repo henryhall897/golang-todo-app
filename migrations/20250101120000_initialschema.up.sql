@@ -12,12 +12,12 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create the todo_lists table
-CREATE TABLE IF NOT EXISTS todo_lists (
+-- Create the todolists table
+CREATE TABLE IF NOT EXISTS todolists (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    name VARCHAR(255) NOT NULL,
-    todo_desc TEXT, -- Renamed from 'description'
+    title VARCHAR(255) NOT NULL,
+    description TEXT, 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -25,13 +25,13 @@ CREATE TABLE IF NOT EXISTS todo_lists (
 -- Create the tasks table
 CREATE TABLE IF NOT EXISTS tasks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    list_id UUID NOT NULL REFERENCES todo_lists(id) ON DELETE CASCADE,
-    title TEXT NOT NULL, -- Changed from VARCHAR(255) to TEXT
-    task_desc TEXT,      -- Renamed from 'description'
+    list_id UUID NOT NULL REFERENCES todolists(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL, 
+    description TEXT,    
     status VARCHAR(50) DEFAULT 'pending',
-    priority INTEGER DEFAULT 0, -- New priority column
+    priority INTEGER DEFAULT 0, 
     due_date TIMESTAMP WITH TIME ZONE,
-    completed_at TIMESTAMP WITH TIME ZONE, -- New completed_at column
+    completed_at TIMESTAMP WITH TIME ZONE, 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

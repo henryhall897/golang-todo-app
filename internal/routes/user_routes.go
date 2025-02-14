@@ -1,24 +1,30 @@
 package routes
 
 import (
-	"golang-todo-app/internal/core/logging"
-	"golang-todo-app/internal/handlers"
-	"golang-todo-app/internal/users"
+	"net/http"
 
-	"github.com/gorilla/mux"
+	"github.com/henryhall897/golang-todo-app/internal/core/logging"
+	"github.com/henryhall897/golang-todo-app/internal/handlers"
+	"github.com/henryhall897/golang-todo-app/internal/users"
 )
 
-func RegisterUserRoutes(router *mux.Router, usersStore users.Store, logger logging.Logger) {
+func RegisterUserRoutes(router *http.ServeMux, usersStore users.Store, logger logging.Logger) {
 	userHandler := &handlers.UserHandler{
 		Store:  usersStore,
 		Logger: logger,
 	}
 
+	// Define handlers for dynamic route `/users/{id}`
+	dynamicHandlers := map[string]http.HandlerFunc{
+		"GET":    userHandler.GetUserByIDHandler,
+		"PUT":    userHandler.UpdateUserHandler,
+		"DELETE": userHandler.DeleteUserHandler,
+	}
+
 	// Define user-related routes
-	router.HandleFunc("/users", userHandler.CreateUserHandler).Methods("POST")
-	router.HandleFunc("/users/{id}", userHandler.GetUserByIDHandler).Methods("GET")
-	router.HandleFunc("/users", userHandler.ListUsersHandler).Methods("GET")
-	router.HandleFunc("/users/email", userHandler.GetUserByEmailHandler).Methods("GET")
-	router.HandleFunc("/users/{id}", userHandler.UpdateUserHandler).Methods("PUT")
-	router.HandleFunc("/users/{id}", userHandler.DeleteUserHandler).Methods("DELETE")
+	router.Handle("/users", handlers.MethodHandler("POST", userHandler.CreateUserHandler)) // Create user
+	router.Handle("/users/", handlers.DynamicRouteHandler(dynamicHandlers))                // Handle dynamic routes
+	router.Handle("/users/email", handlers.MethodHandler("GET", userHandler.GetUserByEmailHandler))
+	// router to dynamic paths and routes
+
 }

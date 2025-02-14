@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"golang-todo-app/internal/core/common"
-	"golang-todo-app/internal/core/dbpool"
-	"golang-todo-app/pkg/dbtest"
+	"github.com/henryhall897/golang-todo-app/internal/core/common"
+	"github.com/henryhall897/golang-todo-app/internal/core/dbpool"
+	"github.com/henryhall897/golang-todo-app/pkg/dbtest"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -76,7 +76,7 @@ func (t *TaskTestSuite) TearDownTest() {
 	t.Require().NoError(err)
 
 	// Truncate the todo_lists table after each test
-	_, err = t.pgt.DB().Exec(t.ctx, "TRUNCATE TABLE todo_lists CASCADE;")
+	_, err = t.pgt.DB().Exec(t.ctx, "TRUNCATE TABLE todolists CASCADE;")
 	t.Require().NoError(err)
 
 	// Truncate the users table after each test
@@ -105,7 +105,7 @@ func (t *TaskTestSuite) createTodoListDirect(userID uuid.UUID, name, description
 	var listID uuid.UUID
 	err := t.pgt.DB().QueryRow(
 		t.ctx,
-		"INSERT INTO todo_lists (id, user_id, name, todo_desc) VALUES (gen_random_uuid(), $1, $2, $3) RETURNING id",
+		"INSERT INTO todolists (id, user_id, title, description) VALUES (gen_random_uuid(), $1, $2, $3) RETURNING id",
 		userID, name, common.Ptr(description),
 	).Scan(&listID)
 
@@ -170,8 +170,8 @@ func (t *TaskTestSuite) TestCreateTask() {
 	// Assert: Verify the task's values
 	t.Require().NotNil(task.Title)
 	t.Equal("Task 1", *task.Title)
-	t.Require().NotNil(task.TaskDesc)
-	t.Equal("This is task number 1", *task.TaskDesc)
+	t.Require().NotNil(task.Description)
+	t.Equal("This is task number 1", *task.Description)
 	t.Require().NotNil(task.Status)
 	t.Equal("pending", *task.Status)
 	t.Require().NotNil(task.DueDate)
@@ -198,14 +198,14 @@ func (t *TaskTestSuite) TestUpdateTask() {
 
 	// Act: Update the task
 	params := UpdateTaskParams{
-		ID:       createdTask.ID,
-		ListID:   t.todoListID,
-		UserID:   t.userID, // Pass UserID
-		Title:    common.Ptr(updatedTitle),
-		TaskDesc: common.Ptr(updatedDescription),
-		Status:   common.Ptr(updatedStatus),
-		DueDate:  common.Ptr(updatedDueDate),
-		Priority: &updatedPriority,
+		ID:          createdTask.ID,
+		ListID:      t.todoListID,
+		UserID:      t.userID, // Pass UserID
+		Title:       common.Ptr(updatedTitle),
+		Description: common.Ptr(updatedDescription),
+		Status:      common.Ptr(updatedStatus),
+		DueDate:     common.Ptr(updatedDueDate),
+		Priority:    &updatedPriority,
 	}
 	updatedTask, err := t.store.UpdateTask(t.ctx, params)
 
@@ -213,7 +213,7 @@ func (t *TaskTestSuite) TestUpdateTask() {
 	t.Require().NoError(err)
 	t.Require().NotNil(updatedTask)
 	t.Equal(updatedTitle, *updatedTask.Title)
-	t.Equal(updatedDescription, *updatedTask.TaskDesc)
+	t.Equal(updatedDescription, *updatedTask.Description)
 	t.Equal(updatedStatus, *updatedTask.Status)
 	t.WithinDuration(updatedDueDate, *updatedTask.DueDate, time.Second)
 
@@ -288,7 +288,7 @@ func (t *TaskTestSuite) TestMarkTaskCompleted() {
 	t.Equal(createdTask.ID, updatedTask.ID)
 	t.Equal(createdTask.ListID, updatedTask.ListID)
 	t.Equal(createdTask.Title, updatedTask.Title)
-	t.Equal(createdTask.TaskDesc, updatedTask.TaskDesc)
+	t.Equal(createdTask.Description, updatedTask.Description)
 	t.Equal(createdTask.DueDate, updatedTask.DueDate)
 }
 
@@ -346,7 +346,7 @@ func (t *TaskTestSuite) TestListTasks() {
 		t.Equal(tasks[i].ID, task.ID)
 		t.Equal(tasks[i].Title, task.Title)
 		t.Equal(tasks[i].ListID, task.ListID)
-		t.Equal(*tasks[i].TaskDesc, *task.TaskDesc)
+		t.Equal(*tasks[i].Description, *task.Description)
 		t.Equal(*tasks[i].Status, *task.Status)
 		t.WithinDuration(*tasks[i].DueDate, *task.DueDate, time.Second)
 		t.Equal(tasks[i].Priority, task.Priority)
@@ -554,7 +554,7 @@ func (t *TaskTestSuite) TestUpdateMultipleTaskPriorities() {
 
 	// Verify other fields remain unchanged for the task we updated
 	t.Equal(taskToUpdate.Title, updatedTask.Title)
-	t.Equal(taskToUpdate.TaskDesc, updatedTask.TaskDesc)
+	t.Equal(taskToUpdate.Description, updatedTask.Description)
 	t.Equal(taskToUpdate.Status, updatedTask.Status)
 	t.Equal(taskToUpdate.DueDate, updatedTask.DueDate)
 }

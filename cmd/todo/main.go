@@ -2,23 +2,25 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 
-	"golang-todo-app/internal/core/logging"
-	"golang-todo-app/internal/routes"
-	"golang-todo-app/internal/users"
+	"github.com/henryhall897/golang-todo-app/internal/config"
+	"github.com/henryhall897/golang-todo-app/internal/core/logging"
+	"github.com/henryhall897/golang-todo-app/internal/routes"
+	"github.com/henryhall897/golang-todo-app/internal/users"
+
+	"net/http"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
-	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sethvargo/go-envconfig"
 	"go.uber.org/zap"
 )
 
@@ -35,7 +37,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize logger: %v", err)
 	}
-	defer logger.Sync()
+	defer func() {
+		if syncErr := logger.Sync(); syncErr != nil {
+			fmt.Printf("Logger sync failed: %v\n", syncErr) // Avoid logging issues in `defer`
+		}
+	}()
 	sugarLogger := logger.Sugar()
 
 	zapLogger := logging.ZapLogger{SugaredLogger: sugarLogger}
@@ -46,7 +52,7 @@ func main() {
 	}
 
 	// Initialize database connection pool
-	pool, err := initializeDatabasePool(dbURL)
+	pool, err := initializeDatabasePool(&zapLogger)
 	if err != nil {
 		sugarLogger.Fatalf("Failed to connect to the database: %v", err)
 	}
@@ -56,7 +62,7 @@ func main() {
 	userStore := users.New(pool)
 
 	// Setup routes and handlers
-	router := mux.NewRouter()
+	router := http.NewServeMux()
 	routes.RegisterUserRoutes(router, userStore, &zapLogger)
 
 	// Apply CORS middleware (optional)
@@ -125,19 +131,33 @@ func applyMigrations(databaseURL string) error {
 	return nil
 }
 
-// initializeDatabasePool sets up the database connection pool
-func initializeDatabasePool(dbURL string) (*pgxpool.Pool, error) {
-	maxConn, _ := strconv.Atoi(os.Getenv("POOL_MAX_CONN"))
-	minConn, _ := strconv.Atoi(os.Getenv("POOL_MIN_CONN"))
+func initializeDatabasePool(logger *logging.ZapLogger) (*pgxpool.Pool, error) {
+	var cfg config.DatabaseConfig
 
-	config, err := pgxpool.ParseConfig(dbURL)
-	if err != nil {
-		return nil, err
+	// Load environment variables
+	if err := envconfig.Process(context.Background(), &cfg); err != nil {
+		logger.Errorw("Failed to load environment variables", "error", err)
+		return nil, fmt.Errorf("failed to load environment variables: %v", err)
 	}
 
-	// Apply pool configuration from environment variables
-	config.MaxConns = int32(maxConn)
-	config.MinConns = int32(minConn)
+	// Parse database config
+	dbConfig, err := pgxpool.ParseConfig(cfg.DBURL)
+	if err != nil {
+		logger.Errorw("Failed to parse database config", "error", err)
+		return nil, fmt.Errorf("failed to parse database config: %v", err)
+	}
 
-	return pgxpool.NewWithConfig(context.Background(), config)
+	// Apply pool configuration
+	dbConfig.MinConns = cfg.MinConns
+	dbConfig.MaxConns = cfg.MaxConns
+
+	// Initialize the database pool
+	pool, err := pgxpool.NewWithConfig(context.Background(), dbConfig)
+	if err != nil {
+		logger.Errorw("Failed to create database pool", "error", err)
+		return nil, fmt.Errorf("failed to create database pool: %v", err)
+	}
+
+	logger.Infow("Database pool successfully initialized", "minConns", cfg.MinConns, "maxConns", cfg.MaxConns)
+	return pool, nil
 }
