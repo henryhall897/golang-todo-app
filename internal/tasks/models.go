@@ -11,7 +11,7 @@ type FullTask struct {
 	ID          uuid.UUID  `json:"id"`
 	ListID      uuid.UUID  `json:"list_id"`
 	Title       *string    `json:"title"`
-	Description *string    `json:"task_description"`
+	Description *string    `json:"description"`
 	Status      *string    `json:"status"`
 	DueDate     *time.Time `json:"due_date"`
 	CreatedAt   *time.Time `json:"created_at"`
@@ -36,7 +36,7 @@ type UpdateTaskParams struct {
 	ListID      uuid.UUID  `json:"list_id"`
 	UserID      uuid.UUID  `json:"user_id"`
 	Title       *string    `json:"title"`
-	Description *string    `json:"task_desc"`
+	Description *string    `json:"description"`
 	Status      *string    `json:"status"`
 	DueDate     *time.Time `json:"due_date"`
 	Priority    *int32     `json:"priority"`
