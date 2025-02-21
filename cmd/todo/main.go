@@ -11,7 +11,6 @@ import (
 
 	"github.com/henryhall897/golang-todo-app/internal/config"
 	"github.com/henryhall897/golang-todo-app/internal/core/logging"
-	"github.com/henryhall897/golang-todo-app/internal/routes"
 	"github.com/henryhall897/golang-todo-app/internal/users"
 
 	"net/http"
@@ -63,7 +62,7 @@ func main() {
 
 	// Setup routes and handlers
 	router := http.NewServeMux()
-	routes.RegisterUserRoutes(router, userStore, &zapLogger)
+	users.RegisterUserRoutes(router, userStore, &zapLogger)
 
 	// Apply CORS middleware (optional)
 	// corsMiddleware := middleware.CORS(corsOrigin)

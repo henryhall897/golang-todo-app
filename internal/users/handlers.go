@@ -1,4 +1,4 @@
-package handlers
+package users
 
 import (
 	"context"
@@ -8,13 +8,12 @@ import (
 
 	"github.com/henryhall897/golang-todo-app/internal/core/common"
 	"github.com/henryhall897/golang-todo-app/internal/core/logging"
-	"github.com/henryhall897/golang-todo-app/internal/users"
 
 	"github.com/google/uuid"
 )
 
 type UserHandler struct {
-	Store  users.Store
+	Store  Store
 	Logger logging.Logger
 }
 
@@ -31,7 +30,7 @@ func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	newUser := users.CreateUserParams{
+	newUser := CreateUserParams{
 		Name:  req.Name,
 		Email: req.Email,
 	}
@@ -116,7 +115,7 @@ func (h *UserHandler) GetUserByEmailHandler(w http.ResponseWriter, r *http.Reque
 // ListUsersHandler handles retrieving all users
 func (h *UserHandler) ListUsersHandler(w http.ResponseWriter, r *http.Request) {
 	// Call store to list users using the request's context
-	userList, err := h.Store.ListUsers(r.Context(), users.ListUsersParams{})
+	userList, err := h.Store.ListUsers(r.Context(), ListUsersParams{})
 	if err != nil {
 		h.Logger.Errorw("Failed to list users", "error", err, "path", r.URL.Path, "method", r.Method)
 		http.Error(w, "Failed to list users", http.StatusInternalServerError)
@@ -125,7 +124,7 @@ func (h *UserHandler) ListUsersHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Handle empty response case
 	if len(userList) == 0 {
-		userList = []users.User{}
+		userList = []User{}
 	}
 
 	// Set response headers and write status code
@@ -176,7 +175,7 @@ func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Prepare update parameters
-	updateUserParams := users.UpdateUserParams{
+	updateUserParams := UpdateUserParams{
 		ID:    userID,
 		Name:  payload.Name,
 		Email: payload.Email,

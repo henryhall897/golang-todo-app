@@ -1,4 +1,4 @@
-package handlers
+package users
 
 import (
 	"bytes"
@@ -11,18 +11,17 @@ import (
 	"time"
 
 	"github.com/henryhall897/golang-todo-app/internal/core/common"
-	"github.com/henryhall897/golang-todo-app/internal/users"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
 // GenerateMockUsers creates a specified number of mock users with unique emails.
-func GenerateMockUsers(count int) []users.User {
+func GenerateMockUsers(count int) []User {
 	now := time.Now()
-	userList := make([]users.User, count)
+	userList := make([]User, count)
 	for i := 0; i < count; i++ {
-		userList[i] = users.User{
+		userList[i] = User{
 			ID:        uuid.New(),
 			Name:      fmt.Sprintf("John %d Doe", i+1),
 			Email:     fmt.Sprintf("johndoe%d@example.com", i+1),
@@ -39,8 +38,8 @@ func TestCreateUserHandler(t *testing.T) {
 
 	// Prepare mock store
 	mockStore := &MockStore{
-		CreateUserFunc: func(ctx context.Context, params users.CreateUserParams) (users.User, error) {
-			return users.User{
+		CreateUserFunc: func(ctx context.Context, params CreateUserParams) (User, error) {
+			return User{
 				ID:        sampleUser.ID,
 				Name:      params.Name,
 				Email:     params.Email,
@@ -83,7 +82,7 @@ func TestCreateUserHandler(t *testing.T) {
 	require.Equal(t, http.StatusCreated, rr.Code, "handler returned wrong status code")
 
 	// Decode and verify the response body
-	var responseBody users.User
+	var responseBody User
 	err = json.NewDecoder(rr.Body).Decode(&responseBody)
 	require.NoError(t, err, "failed to decode response body")
 
@@ -101,11 +100,11 @@ func TestGetUserByIDHandler(t *testing.T) {
 
 	// Prepare mock store
 	mockStore := &MockStore{
-		GetUserByIDFunc: func(ctx context.Context, id uuid.UUID) (users.User, error) {
+		GetUserByIDFunc: func(ctx context.Context, id uuid.UUID) (User, error) {
 			if id == sampleUser.ID {
 				return sampleUser, nil
 			}
-			return users.User{}, &common.UserIDNotFoundError{UserID: id}
+			return User{}, &common.UserIDNotFoundError{UserID: id}
 		},
 	}
 
@@ -145,7 +144,7 @@ func TestGetUserByIDHandler(t *testing.T) {
 		require.Equal(t, http.StatusOK, rr.Code, "handler returned wrong status code")
 
 		// Decode and verify the response body
-		var responseBody users.User
+		var responseBody User
 		err := json.NewDecoder(rr.Body).Decode(&responseBody)
 		require.NoError(t, err, "failed to decode response body")
 
@@ -188,7 +187,7 @@ func TestGetUserByIDHandler(t *testing.T) {
 func TestListUsersHandler(t *testing.T) {
 	// Prepare mock store
 	mockStore := &MockStore{
-		ListUsersFunc: func(ctx context.Context, params users.ListUsersParams) ([]users.User, error) {
+		ListUsersFunc: func(ctx context.Context, params ListUsersParams) ([]User, error) {
 			return GenerateMockUsers(3), nil
 		},
 	}
@@ -213,7 +212,7 @@ func TestListUsersHandler(t *testing.T) {
 	require.Equal(t, http.StatusOK, rr.Code, "handler returned wrong status code")
 
 	// Decode and verify the response body
-	var responseBody []users.User
+	var responseBody []User
 	err := json.NewDecoder(rr.Body).Decode(&responseBody)
 	require.NoError(t, err, "failed to decode response body")
 
@@ -234,14 +233,14 @@ func TestGetUserByEmailHandler(t *testing.T) {
 
 	// Prepare mock store
 	mockStore := &MockStore{
-		GetUserByEmailFunc: func(ctx context.Context, email string) (users.User, error) {
+		GetUserByEmailFunc: func(ctx context.Context, email string) (User, error) {
 			// Search for the user by email in mock data
 			for _, user := range mockUsers {
 				if user.Email == email {
 					return user, nil
 				}
 			}
-			return users.User{}, common.ErrNotFound
+			return User{}, common.ErrNotFound
 		},
 	}
 
@@ -271,7 +270,7 @@ func TestGetUserByEmailHandler(t *testing.T) {
 		require.Equal(t, http.StatusOK, rr.Code, "handler returned wrong status code")
 
 		// Decode and verify the response body
-		var responseBody users.User
+		var responseBody User
 		err := json.NewDecoder(rr.Body).Decode(&responseBody)
 		require.NoError(t, err, "failed to decode response body")
 
@@ -316,7 +315,7 @@ func TestUpdateUserHandler(t *testing.T) {
 
 	// Prepare mock store
 	mockStore := &MockStore{
-		UpdateUserFunc: func(ctx context.Context, params users.UpdateUserParams) (users.User, error) {
+		UpdateUserFunc: func(ctx context.Context, params UpdateUserParams) (User, error) {
 			if params.ID == sampleUser.ID {
 				// Simulate updating the user
 				updatedUser := sampleUser
@@ -324,7 +323,7 @@ func TestUpdateUserHandler(t *testing.T) {
 				updatedUser.Email = *params.Email
 				return updatedUser, nil
 			}
-			return users.User{}, common.ErrNotFound
+			return User{}, common.ErrNotFound
 		},
 	}
 
@@ -372,7 +371,7 @@ func TestUpdateUserHandler(t *testing.T) {
 		require.Equal(t, http.StatusOK, rr.Code, "handler returned wrong status code")
 
 		// Decode and verify the response body
-		var responseBody users.User
+		var responseBody User
 		err = json.NewDecoder(rr.Body).Decode(&responseBody)
 		require.NoError(t, err, "failed to decode response body")
 
