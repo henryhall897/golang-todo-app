@@ -14,8 +14,8 @@ type Config struct {
 	User         string `env:"POSTGRES_USER" json:"user"`
 	Password     string `env:"POSTGRES_PASSWORD" json:"-"` // Hide from logging
 	DatabaseName string `env:"POSTGRES_DB" json:"database_name"`
-	MaxConns     int32  `env:"POOL_MAX_CONN, default=2"`
-	MinConns     int32  `env:"POOL_MIN_CONN, default=1"`
+	MaxConns     int32  `env:"POSTGRES_POOL_MAX_CONN, default=10"`
+	MinConns     int32  `env:"POSTGRES_POOL_MIN_CONN, default=1"`
 }
 
 // ConnectString constructs the connection string from ENV.

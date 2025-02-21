@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"golang-todo-app/internal/users/gen"
+	"github.com/henryhall897/golang-todo-app/internal/users/gen"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -20,10 +20,10 @@ func TestTransform(t *testing.T) {
 	suite.Run(t, new(TransformTestSuite))
 }
 
-func TestPgToUsers(t *testing.T) {
+func TestDBToUsers(t *testing.T) {
 	// Arrange
 	validUUID := uuid.New()
-	validTime := time.Now()
+	validTime := time.Now().UTC()
 
 	genUser := gen.User{
 		ID: pgtype.UUID{
@@ -32,23 +32,23 @@ func TestPgToUsers(t *testing.T) {
 		},
 		Name:      "John Doe",
 		Email:     "john.doe@example.com",
-		CreatedAt: pgtype.Timestamptz{Time: validTime, Valid: true}, // Use Timestamptz
-		UpdatedAt: pgtype.Timestamptz{Time: validTime, Valid: true}, // Use Timestamptz
+		CreatedAt: pgtype.Timestamp{Time: validTime, Valid: true}, // Use Timestamptz
+		UpdatedAt: pgtype.Timestamp{Time: validTime, Valid: true}, // Use Timestamptz
 	}
 
 	// Act
-	user, err := pgToUsers(genUser) // Direct call
+	user, err := dbToUsers(genUser) // Direct call
 
 	// Assert
 	require.NoError(t, err)
 	require.Equal(t, validUUID, user.ID)
 	require.Equal(t, genUser.Name, user.Name)
 	require.Equal(t, genUser.Email, user.Email)
-	require.Equal(t, validTime, user.CreatedAt)
-	require.Equal(t, validTime, user.UpdatedAt)
+	require.Equal(t, &validTime, user.CreatedAt)
+	require.Equal(t, validTime, *user.UpdatedAt)
 }
 
-func TestPgToUsersInvalidUUID(t *testing.T) {
+func TestDBToUsersInvalidUUID(t *testing.T) {
 	// Arrange
 	genUser := gen.User{
 		ID: pgtype.UUID{
@@ -59,14 +59,14 @@ func TestPgToUsersInvalidUUID(t *testing.T) {
 	}
 
 	// Act
-	_, err := pgToUsers(genUser) // Direct call
+	_, err := dbToUsers(genUser) // Direct call
 
 	// Assert
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid user id")
 }
 
-func TestPgToUsersInvalidTimestamp(t *testing.T) {
+func TestDBToUsersInvalidTimestamp(t *testing.T) {
 	// Arrange
 	validUUID := uuid.New()
 
@@ -77,37 +77,58 @@ func TestPgToUsersInvalidTimestamp(t *testing.T) {
 		},
 		Name:      "Jane Doe",
 		Email:     "jane.doe@example.com",
-		CreatedAt: pgtype.Timestamptz{Valid: false}, // Invalid timestamp
-		UpdatedAt: pgtype.Timestamptz{Valid: false}, // Invalid timestamp
+		CreatedAt: pgtype.Timestamp{Valid: false}, // Invalid timestamp
+		UpdatedAt: pgtype.Timestamp{Valid: false}, // Invalid timestamp
 	}
 
 	// Act
-	user, err := pgToUsers(genUser) // Direct call
+	user, err := dbToUsers(genUser) // Direct call
 
 	// Assert
-	require.NoError(t, err) // Expect no error as pgToUsers doesn't validate timestamps
+	require.NoError(t, err)
 	require.Equal(t, validUUID, user.ID)
 	require.Equal(t, genUser.Name, user.Name)
 	require.Equal(t, genUser.Email, user.Email)
-	require.Equal(t, time.Time{}, user.CreatedAt) // Expect zero value for invalid timestamp
-	require.Equal(t, time.Time{}, user.UpdatedAt) // Expect zero value for invalid timestamp
+	require.Nil(t, user.CreatedAt, "Expected CreatedAt to be nil")
+	require.Nil(t, user.UpdatedAt, "Expected UpdatedAt to be nil")
 }
 
-func TestUUIDToPgUUID(t *testing.T) {
-	// Test valid UUID conversion
+func TestToDBUpdateUserParams(t *testing.T) {
+	// Arrange
 	validUUID := uuid.New()
-	pgUUID, err := uuidToPgUUID(validUUID) // Direct call
-	require.NoError(t, err)
-	require.True(t, pgUUID.Valid)
+	name := "Jane Doe"
+	email := "jane.doe@example.com"
 
-	// Convert pgUUID.Bytes back to uuid.UUID for comparison
-	convertedUUID, err := uuid.FromBytes(pgUUID.Bytes[:])
-	require.NoError(t, err)
-	require.Equal(t, validUUID, convertedUUID)
+	inputParams := UpdateUserParams{
+		ID:    validUUID,
+		Name:  name,
+		Email: email,
+	}
 
-	// Test nil UUID
-	nilUUID := uuid.Nil
-	_, err = uuidToPgUUID(nilUUID) // Direct call
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "invalid UUID")
+	// Act
+	dbParams, err := toDBUpdateUserParams(inputParams) // Direct call
+
+	// Assert
+	require.NoError(t, err)
+	require.Equal(t, validUUID, uuid.UUID(dbParams.ID.Bytes), "UUID should match")
+	require.Equal(t, name, dbParams.Name, "Name should match")
+	require.Equal(t, email, dbParams.Email, "Email should match")
+}
+
+func TestToDBCreateUserParams(t *testing.T) {
+	// Arrange
+	name := "John Doe"
+	email := "john.doe@example.com"
+
+	inputParams := CreateUserParams{
+		Name:  name,
+		Email: email,
+	}
+
+	// Act
+	dbParams := toDBCreateUserParams(inputParams) // Direct call
+
+	// Assert
+	require.Equal(t, name, dbParams.Name, "Name should match")
+	require.Equal(t, email, dbParams.Email, "Email should match")
 }

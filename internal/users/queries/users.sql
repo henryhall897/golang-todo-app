@@ -17,10 +17,16 @@ FROM users
 WHERE email = $1;
 
 -- Update user details
--- name: UpdateUser :exec
+-- name: UpdateUser :one
 UPDATE users
-SET name = $2, email = $3, updated_at = CURRENT_TIMESTAMP
-WHERE id = $1;
+SET 
+    name = $2,
+    email = $3,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1
+RETURNING *;
+
+
 
 -- Delete a user by ID
 -- name: DeleteUser :execrows

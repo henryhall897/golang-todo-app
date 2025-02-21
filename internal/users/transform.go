@@ -2,38 +2,57 @@ package users
 
 import (
 	"fmt"
-	"golang-todo-app/internal/users/gen"
 
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/henryhall897/golang-todo-app/internal/core/common"
+	"github.com/henryhall897/golang-todo-app/internal/users/gen"
 )
 
-func pgToUsers(users gen.User) (User, error) {
+func dbToUsers(users gen.User) (User, error) {
 	if !users.ID.Valid {
 		return User{}, fmt.Errorf("invalid user id")
 	}
-	id, err := uuid.Parse(users.ID.String())
+	userID, err := common.FromPgUUID(users.ID)
 	if err != nil {
 		return User{}, fmt.Errorf("failed to parse uuid")
 	}
+	userCreatedAt := common.FromPgTimestamp(users.CreatedAt)
+	userUpdatedAt := common.FromPgTimestamp(users.UpdatedAt)
 
 	return User{
-		ID:        id,
+		ID:        userID,
 		Name:      users.Name,
 		Email:     users.Email,
-		CreatedAt: users.CreatedAt.Time,
-		UpdatedAt: users.UpdatedAt.Time,
+		CreatedAt: userCreatedAt,
+		UpdatedAt: userUpdatedAt,
 	}, nil
 }
 
-// uuidToPgUUID converts a uuid.UUID into a pgtype.UUID
-func uuidToPgUUID(id uuid.UUID) (pgtype.UUID, error) {
-	if id == uuid.Nil {
-		return pgtype.UUID{}, fmt.Errorf("invalid UUID: UUID is nil")
+// toPgListParams converts ListUsersParams to gen.ListUsersParams
+func toDBListParams(params ListUsersParams) gen.ListUsersParams {
+	return gen.ListUsersParams{
+		Limit:  int32(params.Limit),
+		Offset: int32(params.Offset),
+	}
+}
+
+// toPgCreateUserParams converts CreateUserParams to gen.CreateUserParams
+func toDBCreateUserParams(params CreateUserParams) gen.CreateUserParams {
+	return gen.CreateUserParams{
+		Name:  params.Name,
+		Email: params.Email,
+	}
+}
+
+func toDBUpdateUserParams(input UpdateUserParams) (gen.UpdateUserParams, error) {
+	pgId, err := common.ToPgUUID(input.ID)
+	if err != nil {
+		return gen.UpdateUserParams{}, fmt.Errorf("failed to convert UUID: %w", err)
 	}
 
-	return pgtype.UUID{
-		Bytes: id,
-		Valid: true,
-	}, nil
+	userUpdate := gen.UpdateUserParams{
+		ID:    pgId,
+		Name:  input.Name,
+		Email: input.Email,
+	}
+	return userUpdate, nil
 }

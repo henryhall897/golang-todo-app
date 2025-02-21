@@ -11,7 +11,7 @@ import (
 type Task struct {
 	ID          pgtype.UUID      `json:"id"`
 	ListID      pgtype.UUID      `json:"list_id"`
-	Title       string           `json:"title"`
+	Title       pgtype.Text      `json:"title"`
 	Description pgtype.Text      `json:"description"`
 	Status      pgtype.Text      `json:"status"`
 	Priority    pgtype.Int4      `json:"priority"`

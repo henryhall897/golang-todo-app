@@ -1,12 +1,13 @@
-module golang-todo-app
+module github.com/henryhall897/golang-todo-app
 
-go 1.23.4
+go 1.23
+
+toolchain go1.23.5
 
 require (
 	github.com/golang-migrate/migrate/v4 v4.18.1
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.2
-	github.com/joho/godotenv v1.5.1
 	github.com/magefile/mage v1.15.0
 	github.com/ory/dockertest/v3 v3.11.0
 	github.com/sethvargo/go-envconfig v1.1.0

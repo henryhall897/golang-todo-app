@@ -1,0 +1,62 @@
+package users
+
+import (
+	"context"
+
+	"github.com/henryhall897/golang-todo-app/internal/core/common"
+
+	"github.com/google/uuid"
+)
+
+// MockStore is a mock implementation of the Store interface.
+type MockStore struct {
+	CreateUserFunc     func(ctx context.Context, params CreateUserParams) (User, error)
+	GetUserByIDFunc    func(ctx context.Context, id uuid.UUID) (User, error)
+	GetUserByEmailFunc func(ctx context.Context, email string) (User, error)
+	ListUsersFunc      func(ctx context.Context, params ListUsersParams) ([]User, error)
+	UpdateUserFunc     func(ctx context.Context, params UpdateUserParams) (User, error)
+	DeleteUserFunc     func(ctx context.Context, id uuid.UUID) error
+}
+
+// Mock method implementations for the Store interface.
+
+func (m *MockStore) CreateUser(ctx context.Context, params CreateUserParams) (User, error) {
+	if m.CreateUserFunc != nil {
+		return m.CreateUserFunc(ctx, params)
+	}
+	return User{}, nil
+}
+
+func (m *MockStore) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
+	if m.GetUserByIDFunc != nil {
+		return m.GetUserByIDFunc(ctx, id)
+	}
+	return User{}, nil
+}
+
+func (m *MockStore) ListUsers(ctx context.Context, params ListUsersParams) ([]User, error) {
+	if m.ListUsersFunc != nil {
+		return m.ListUsersFunc(ctx, params)
+	}
+	return []User{}, nil
+}
+
+func (m *MockStore) UpdateUser(ctx context.Context, params UpdateUserParams) (User, error) {
+	if m.UpdateUserFunc != nil {
+		return m.UpdateUserFunc(ctx, params)
+	}
+	return User{}, common.ErrNotFound
+}
+
+func (m *MockStore) DeleteUser(ctx context.Context, id uuid.UUID) error {
+	if m.DeleteUserFunc != nil {
+		return m.DeleteUserFunc(ctx, id)
+	}
+	return nil
+}
+func (m *MockStore) GetUserByEmail(ctx context.Context, email string) (User, error) {
+	if m.GetUserByEmailFunc != nil {
+		return m.GetUserByEmailFunc(ctx, email)
+	}
+	return User{}, nil
+}
