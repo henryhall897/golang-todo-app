@@ -45,7 +45,7 @@ func TestToDBCreateTask(t *testing.T) {
 func TestToFullTask(t *testing.T) {
 	// Arrange
 	validUUID := uuid.New()
-	validTime := time.Now()
+	validTime := time.Now().UTC()
 
 	// Create a gen.Task struct to use as input
 	genTask := gen.Task{

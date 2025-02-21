@@ -17,7 +17,7 @@ func TestToAppTodoList(t *testing.T) {
 	// Arrange
 	validUUID := uuid.New()
 	validUserID := uuid.New()
-	validTime := time.Now()
+	validTime := time.Now().UTC()
 
 	genTodo := gen.Todolist{
 		ID: pgtype.UUID{
