@@ -114,7 +114,7 @@ func TestToPgTimestamptz(t *testing.T) {
 		currentTime := time.Now()
 
 		// Act: Convert the time pointer to pgtype.Timestamptz
-		result := ToPgTimestamptz(&currentTime)
+		result := ToPgTimestamp(&currentTime)
 
 		// Assert: Verify that the result is valid and contains the correct time
 		require.True(t, result.Valid)
@@ -127,7 +127,7 @@ func TestToPgTimestamptz(t *testing.T) {
 		var m *time.Time
 
 		// Act: Convert the nil time pointer to pgtype.Timestamptz
-		result := ToPgTimestamptz(m)
+		result := ToPgTimestamp(m)
 
 		// Assert: Verify that the result is invalid (Valid should be false)
 		require.False(t, result.Valid)
@@ -217,13 +217,13 @@ func TestFromPgTimestamptz(t *testing.T) {
 	t.Run("Valid Timestamptz", func(t *testing.T) {
 		// Arrange: Create a valid pgtype.Timestamptz
 		validTime := time.Now()
-		pgTime := pgtype.Timestamptz{
+		pgTime := pgtype.Timestamp{
 			Time:  validTime,
 			Valid: true,
 		}
 
 		// Act: Convert pgtype.Timestamptz to time pointer
-		result := FromPgTimestamptz(pgTime)
+		result := FromPgTimestamp(pgTime)
 
 		// Assert: Verify the result
 		require.NotNil(t, result)
@@ -233,10 +233,10 @@ func TestFromPgTimestamptz(t *testing.T) {
 	// Test case when pgtype.Timestamptz is invalid
 	t.Run("Invalid Timestamptz", func(t *testing.T) {
 		// Arrange: Create an invalid pgtype.Timestamptz
-		invalidTime := pgtype.Timestamptz{Valid: false}
+		invalidTime := pgtype.Timestamp{Valid: false}
 
 		// Act: Convert pgtype.Timestamptz to time pointer
-		result := FromPgTimestamptz(invalidTime)
+		result := FromPgTimestamp(invalidTime)
 
 		// Assert: Verify the result
 		require.Nil(t, result)

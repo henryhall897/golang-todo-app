@@ -60,29 +60,3 @@ func (m *MockStore) GetUserByEmail(ctx context.Context, email string) (User, err
 	}
 	return User{}, nil
 }
-
-// MockLogger is a mock implementation of the Logger interface.
-type MockLogger struct {
-	ErrorwFunc func(msg string, keysAndValues ...interface{})
-	InfowFunc  func(msg string, keysAndValues ...interface{})
-	DebugwFunc func(msg string, keysAndValues ...interface{})
-	// Add other methods as needed
-}
-
-func (m *MockLogger) Errorw(msg string, keysAndValues ...interface{}) {
-	if m.ErrorwFunc != nil {
-		m.ErrorwFunc(msg, keysAndValues...)
-	}
-}
-
-func (m *MockLogger) Infow(msg string, keysAndValues ...interface{}) {
-	if m.InfowFunc != nil {
-		m.InfowFunc(msg, keysAndValues...)
-	}
-}
-
-func (m *MockLogger) Debugw(msg string, keysAndValues ...interface{}) {
-	if m.DebugwFunc != nil {
-		m.DebugwFunc(msg, keysAndValues...)
-	}
-}

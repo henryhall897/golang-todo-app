@@ -7,14 +7,14 @@ import (
 	"net/http"
 
 	"github.com/henryhall897/golang-todo-app/internal/core/common"
-	"github.com/henryhall897/golang-todo-app/internal/core/logging"
+	"go.uber.org/zap"
 
 	"github.com/google/uuid"
 )
 
 type UserHandler struct {
 	Store  Store
-	Logger logging.Logger
+	Logger *zap.SugaredLogger
 }
 
 // CreateUserHandler handles creating a new user
@@ -154,13 +154,10 @@ func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Limit request body size to 1MB for security
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-
 	// Parse the request body
 	var payload struct {
-		Name  *string `json:"name,omitempty"`
-		Email *string `json:"email,omitempty"`
+		Name  *string `json:"name"`
+		Email *string `json:"email"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		h.Logger.Errorw("Invalid request body", "error", err)
@@ -169,16 +166,16 @@ func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Ensure at least one field is provided
-	if payload.Name == nil && payload.Email == nil {
-		http.Error(w, "At least one field (name or email) must be provided", http.StatusBadRequest)
+	if payload.Name == nil || payload.Email == nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
 	// Prepare update parameters
 	updateUserParams := UpdateUserParams{
 		ID:    userID,
-		Name:  payload.Name,
-		Email: payload.Email,
+		Name:  *payload.Name,
+		Email: *payload.Email,
 	}
 
 	// Call the store to update the user

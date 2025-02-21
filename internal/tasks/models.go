@@ -14,8 +14,8 @@ type FullTask struct {
 	Description *string    `json:"description"`
 	Status      *string    `json:"status"`
 	DueDate     *time.Time `json:"due_date"`
-	CreatedAt   *time.Time `json:"created_at"`
-	UpdatedAt   *time.Time `json:"updated_at"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
 	Priority    *int32     `json:"priority"`
 	CompletedAt *time.Time `json:"completed_at"`
 }

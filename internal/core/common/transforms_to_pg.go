@@ -33,14 +33,14 @@ func ToPgText(str *string) pgtype.Text {
 }
 
 // ToPgTimestamptz converts a Go time.Time pointer to a pgtype.Timestamptz.
-func ToPgTimestamptz(t *time.Time) pgtype.Timestamptz {
+func ToPgTimestamp(t *time.Time) pgtype.Timestamp {
 	if t != nil {
-		return pgtype.Timestamptz{
-			Time:  *t,
+		return pgtype.Timestamp{
+			Time:  t.UTC(),
 			Valid: true,
 		}
 	}
-	return pgtype.Timestamptz{
+	return pgtype.Timestamp{
 		Valid: false,
 	}
 }

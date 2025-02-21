@@ -21,7 +21,7 @@ func toDBCreateTask(params CreateTaskParams) (gen.CreateTaskParams, error) {
 	dbTitle := common.ToPgText(params.Title)
 	dbDescription := common.ToPgText(params.Description)
 	dbStatus := common.ToPgText(params.Status)
-	dbDueDate := common.ToPgTimestamptz(params.DueDate)
+	dbDueDate := common.ToPgTimestamp(params.DueDate)
 	dbPriority := common.ToPgInt4(params.Priority)
 
 	// Return the transformed Task
@@ -52,10 +52,10 @@ func toFullTask(dbTask gen.Task) (FullTask, error) {
 	title := common.FromPgText(dbTask.Title)
 	description := common.FromPgText(dbTask.Description)
 	status := common.FromPgText(dbTask.Status)
-	dueDate := common.FromPgTimestamptz(dbTask.DueDate)
+	dueDate := common.FromPgTimestamp(dbTask.DueDate)
 	createdAt := dbTask.CreatedAt.Time
 	updatedAt := dbTask.UpdatedAt.Time
-	completedAt := common.FromPgTimestamptz(dbTask.CompletedAt)
+	completedAt := common.FromPgTimestamp(dbTask.CompletedAt)
 	priority := common.FromPgInt4(dbTask.Priority)
 
 	// Return the transformed FullTask
@@ -66,8 +66,8 @@ func toFullTask(dbTask gen.Task) (FullTask, error) {
 		Description: description,
 		Status:      status,
 		DueDate:     dueDate,
-		CreatedAt:   &createdAt,
-		UpdatedAt:   &updatedAt,
+		CreatedAt:   createdAt,
+		UpdatedAt:   updatedAt,
 		Priority:    priority,
 		CompletedAt: completedAt,
 	}, nil
@@ -103,8 +103,8 @@ func toDBUpdateTaskParams(params UpdateTaskParams) (gen.UpdateTaskParams, error)
 	dbTitle := common.ToPgText(params.Title)
 	dbTaskDesc := common.ToPgText(params.Description)
 	dbStatus := common.ToPgText(params.Status)
-	dbDueDate := common.ToPgTimestamptz(params.DueDate)
-	dbCompletedAt := common.ToPgTimestamptz(params.CompletedAt)
+	dbDueDate := common.ToPgTimestamp(params.DueDate)
+	dbCompletedAt := common.ToPgTimestamp(params.CompletedAt)
 
 	// Handle Priority
 	var dbPriority pgtype.Int4
@@ -257,12 +257,18 @@ func toDBSearchTasksParams(params SearchTasksParams) (gen.SearchTasksParams, err
 	}, nil
 }
 
-func toDBUpdatePriorityParams(params UpdateTaskParams) gen.UpdateTaskPriorityParams {
+func toDBUpdatePriorityParams(params UpdateTaskParams) (gen.UpdateTaskPriorityParams, error) {
 	// Convert and validate TaskID
-	dbTaskID, _ := common.ToPgUUID(params.ID)
+	dbTaskID, err := common.ToPgUUID(params.ID)
+	if err != nil {
+		return gen.UpdateTaskPriorityParams{}, fmt.Errorf("invalid user_id: %w", err)
+	}
 
 	// Convert and validate UserID
-	dbListID, _ := common.ToPgUUID(params.ListID)
+	dbListID, err := common.ToPgUUID(params.ListID)
+	if err != nil {
+		return gen.UpdateTaskPriorityParams{}, fmt.Errorf("invalid list_id: %w", err)
+	}
 
 	// Convert Priority
 	dbPriority := common.ToPgInt4(*params.Priority)
@@ -272,5 +278,5 @@ func toDBUpdatePriorityParams(params UpdateTaskParams) gen.UpdateTaskPriorityPar
 		ID:       dbTaskID,
 		ListID:   dbListID,
 		Priority: dbPriority,
-	}
+	}, nil
 }

@@ -15,8 +15,8 @@ func dbToUsers(users gen.User) (User, error) {
 	if err != nil {
 		return User{}, fmt.Errorf("failed to parse uuid")
 	}
-	userCreatedAt := common.FromPgTimestamptz(users.CreatedAt)
-	userUpdatedAt := common.FromPgTimestamptz(users.UpdatedAt)
+	userCreatedAt := common.FromPgTimestamp(users.CreatedAt)
+	userUpdatedAt := common.FromPgTimestamp(users.UpdatedAt)
 
 	return User{
 		ID:        userID,
@@ -49,23 +49,10 @@ func toDBUpdateUserParams(input UpdateUserParams) (gen.UpdateUserParams, error) 
 		return gen.UpdateUserParams{}, fmt.Errorf("failed to convert UUID: %w", err)
 	}
 
-	if input.Name == nil && input.Email == nil {
-		return gen.UpdateUserParams{}, fmt.Errorf("nothing to update")
-	}
-
 	userUpdate := gen.UpdateUserParams{
-		ID: pgId,
-	}
-
-	if input.Name != nil {
-		userUpdate.Column2 = *input.Name
-	} else {
-		userUpdate.Column2 = ""
-	}
-	if input.Email != nil {
-		userUpdate.Column3 = *input.Email
-	} else {
-		userUpdate.Column3 = ""
+		ID:    pgId,
+		Name:  input.Name,
+		Email: input.Email,
 	}
 	return userUpdate, nil
 }

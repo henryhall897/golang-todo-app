@@ -249,7 +249,7 @@ func (t *TaskTestSuite) TestUpdateTaskPriority() {
 	t.Equal(createdTask.ID, updatedTask.ID)
 	t.Require().NotNil(updatedTask.Priority)
 	t.Equal(newPriority, *updatedTask.Priority)
-	t.WithinDuration(time.Now(), *updatedTask.UpdatedAt, time.Second)
+	t.WithinDuration(time.Now(), updatedTask.UpdatedAt, time.Second)
 }
 
 func (t *TaskTestSuite) TestMarkTaskCompleted() {
@@ -282,7 +282,7 @@ func (t *TaskTestSuite) TestMarkTaskCompleted() {
 	t.Nil(updatedTask.Priority)                                         // Priority should be NULL
 	t.NotNil(updatedTask.CompletedAt)                                   // Ensure completed_at is set
 	t.WithinDuration(time.Now(), *updatedTask.CompletedAt, time.Second) // Ensure completed_at is within a second
-	t.WithinDuration(time.Now(), *updatedTask.UpdatedAt, time.Second)   // Ensure updated_at is within a second
+	t.WithinDuration(time.Now(), updatedTask.UpdatedAt, time.Second)    // Ensure updated_at is within a second
 
 	// Verify other fields remain unchanged
 	t.Equal(createdTask.ID, updatedTask.ID)
@@ -429,8 +429,8 @@ func (t *TaskTestSuite) TestListTasksByStatus() {
 
 		// Handle time comparison by dereferencing the pointers to time values
 		// If tasks[i].UpdatedAt is a *time.Time, we need to dereference it in the comparison
-		t.WithinDuration(*tasks[i].UpdatedAt, *task.UpdatedAt, time.Second) // Compare UpdatedAt properly
-		t.WithinDuration(*tasks[i].CreatedAt, *task.CreatedAt, time.Second) // Compare CreatedAt properly
+		t.WithinDuration(tasks[i].UpdatedAt, task.UpdatedAt, time.Second) // Compare UpdatedAt properly
+		t.WithinDuration(tasks[i].CreatedAt, task.CreatedAt, time.Second) // Compare CreatedAt properly
 	}
 }
 

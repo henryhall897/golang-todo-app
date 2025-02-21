@@ -28,6 +28,6 @@ type CreateUserParams struct {
 // UpdateUserParams represents the parameters for updating a user.
 type UpdateUserParams struct {
 	ID    uuid.UUID `json:"id"`
-	Name  *string   `json:"name,omitempty"` // Using pointers to allow optional fields
-	Email *string   `json:"email,omitempty"`
+	Name  string    `json:"name,omitempty"` // Using pointers to allow optional fields
+	Email string    `json:"email,omitempty"`
 }

@@ -54,11 +54,11 @@ func TestToFullTask(t *testing.T) {
 		Title:       pgtype.Text{String: "Sample Task Title", Valid: true},
 		Description: pgtype.Text{String: "This is a sample task description.", Valid: true},
 		Status:      pgtype.Text{String: "pending", Valid: true},
-		DueDate:     pgtype.Timestamptz{Time: validTime, Valid: true},
-		CreatedAt:   pgtype.Timestamptz{Time: validTime, Valid: true},
-		UpdatedAt:   pgtype.Timestamptz{Time: validTime, Valid: true},
+		DueDate:     pgtype.Timestamp{Time: validTime, Valid: true},
+		CreatedAt:   pgtype.Timestamp{Time: validTime, Valid: true},
+		UpdatedAt:   pgtype.Timestamp{Time: validTime, Valid: true},
 		Priority:    pgtype.Int4{Int32: 5, Valid: true},
-		CompletedAt: pgtype.Timestamptz{Valid: false}, // CompletedAt is not set for this task
+		CompletedAt: pgtype.Timestamp{Valid: false}, // CompletedAt is not set for this task
 	}
 
 	// Act: Transform gen.Task into FullTask
@@ -72,8 +72,8 @@ func TestToFullTask(t *testing.T) {
 	require.Equal(t, "This is a sample task description.", *fullTask.Description)
 	require.Equal(t, "pending", *fullTask.Status)
 	require.WithinDuration(t, validTime, *fullTask.DueDate, time.Second)
-	require.WithinDuration(t, validTime, *fullTask.CreatedAt, time.Second)
-	require.WithinDuration(t, validTime, *fullTask.UpdatedAt, time.Second)
+	require.WithinDuration(t, validTime, fullTask.CreatedAt, time.Second)
+	require.WithinDuration(t, validTime, fullTask.UpdatedAt, time.Second)
 	require.Equal(t, int32(5), *fullTask.Priority)
 	require.Nil(t, fullTask.CompletedAt) // CompletedAt should be nil
 
@@ -84,8 +84,8 @@ func TestToFullTask(t *testing.T) {
 	require.Equal(t, "This is a sample task description.", *fullTask.Description)
 	require.Equal(t, "pending", *fullTask.Status)
 	require.Equal(t, validTime, *fullTask.DueDate)
-	require.Equal(t, validTime, *fullTask.CreatedAt)
-	require.Equal(t, validTime, *fullTask.UpdatedAt)
+	require.Equal(t, validTime, fullTask.CreatedAt)
+	require.Equal(t, validTime, fullTask.UpdatedAt)
 	require.Equal(t, int32(5), *fullTask.Priority)
 	require.Nil(t, fullTask.CompletedAt)
 }
@@ -101,11 +101,11 @@ func TestToFullTaskList(t *testing.T) {
 			Title:       pgtype.Text{String: "Task 1", Valid: true},
 			Description: pgtype.Text{String: "This is task number 1", Valid: true},
 			Status:      pgtype.Text{String: "pending", Valid: true},
-			DueDate:     pgtype.Timestamptz{Time: validTime, Valid: true},
-			CreatedAt:   pgtype.Timestamptz{Time: validTime, Valid: true},
-			UpdatedAt:   pgtype.Timestamptz{Time: validTime, Valid: true},
+			DueDate:     pgtype.Timestamp{Time: validTime, Valid: true},
+			CreatedAt:   pgtype.Timestamp{Time: validTime, Valid: true},
+			UpdatedAt:   pgtype.Timestamp{Time: validTime, Valid: true},
 			Priority:    pgtype.Int4{Int32: 1, Valid: true},
-			CompletedAt: pgtype.Timestamptz{Valid: false}, // CompletedAt is not set
+			CompletedAt: pgtype.Timestamp{Valid: false}, // CompletedAt is not set
 		},
 		{
 			ID:          pgtype.UUID{Bytes: validUUID, Valid: true},
@@ -113,11 +113,11 @@ func TestToFullTaskList(t *testing.T) {
 			Title:       pgtype.Text{String: "Task 2", Valid: true},
 			Description: pgtype.Text{String: "This is task number 2", Valid: true},
 			Status:      pgtype.Text{String: "pending", Valid: true},
-			DueDate:     pgtype.Timestamptz{Time: validTime, Valid: true},
-			CreatedAt:   pgtype.Timestamptz{Time: validTime, Valid: true},
-			UpdatedAt:   pgtype.Timestamptz{Time: validTime, Valid: true},
+			DueDate:     pgtype.Timestamp{Time: validTime, Valid: true},
+			CreatedAt:   pgtype.Timestamp{Time: validTime, Valid: true},
+			UpdatedAt:   pgtype.Timestamp{Time: validTime, Valid: true},
 			Priority:    pgtype.Int4{Int32: 2, Valid: true},
-			CompletedAt: pgtype.Timestamptz{Valid: false}, // CompletedAt is not set
+			CompletedAt: pgtype.Timestamp{Valid: false}, // CompletedAt is not set
 		},
 	}
 
@@ -130,16 +130,16 @@ func TestToFullTaskList(t *testing.T) {
 	// Verify each FullTask field is correctly populated
 	// Verify each FullTask field is correctly populated
 	for i := range fullTasks {
-		require.Equal(t, genTasks[i].ID.Bytes[:], fullTasks[i].ID[:])                               // Compare the bytes correctly
-		require.Equal(t, genTasks[i].ListID.Bytes[:], fullTasks[i].ListID[:])                       // Compare ListID bytes
-		require.Equal(t, genTasks[i].Title.String, *fullTasks[i].Title)                             // Compare Title
-		require.Equal(t, genTasks[i].Description.String, *fullTasks[i].Description)                 // Compare TaskDesc
-		require.Equal(t, genTasks[i].Status.String, *fullTasks[i].Status)                           // Compare Status
-		require.WithinDuration(t, genTasks[i].DueDate.Time, *fullTasks[i].DueDate, time.Second)     // Compare DueDate
-		require.WithinDuration(t, genTasks[i].CreatedAt.Time, *fullTasks[i].CreatedAt, time.Second) // Compare CreatedAt
-		require.WithinDuration(t, genTasks[i].UpdatedAt.Time, *fullTasks[i].UpdatedAt, time.Second) // Compare UpdatedAt
-		require.Equal(t, genTasks[i].Priority.Int32, *fullTasks[i].Priority)                        // Compare Priority
-		require.Nil(t, fullTasks[i].CompletedAt)                                                    // Ensure CompletedAt is nil
+		require.Equal(t, genTasks[i].ID.Bytes[:], fullTasks[i].ID[:])                              // Compare the bytes correctly
+		require.Equal(t, genTasks[i].ListID.Bytes[:], fullTasks[i].ListID[:])                      // Compare ListID bytes
+		require.Equal(t, genTasks[i].Title.String, *fullTasks[i].Title)                            // Compare Title
+		require.Equal(t, genTasks[i].Description.String, *fullTasks[i].Description)                // Compare TaskDesc
+		require.Equal(t, genTasks[i].Status.String, *fullTasks[i].Status)                          // Compare Status
+		require.WithinDuration(t, genTasks[i].DueDate.Time, *fullTasks[i].DueDate, time.Second)    // Compare DueDate
+		require.WithinDuration(t, genTasks[i].CreatedAt.Time, fullTasks[i].CreatedAt, time.Second) // Compare CreatedAt
+		require.WithinDuration(t, genTasks[i].UpdatedAt.Time, fullTasks[i].UpdatedAt, time.Second) // Compare UpdatedAt
+		require.Equal(t, genTasks[i].Priority.Int32, *fullTasks[i].Priority)                       // Compare Priority
+		require.Nil(t, fullTasks[i].CompletedAt)                                                   // Ensure CompletedAt is nil
 	}
 
 }
@@ -374,10 +374,11 @@ func TestToDBUpdatePriorityParams(t *testing.T) {
 	}
 
 	// Act: Call the function to transform UpdateTaskParams into gen.UpdateTaskPriorityParams
-	result := toDBUpdatePriorityParams(params)
+	result, err := toDBUpdatePriorityParams(params)
 
 	// Assert: Verify the transformation
 	// Verify that TaskID is correctly transformed to pgtype.UUID
+	require.NoError(t, err)
 	require.True(t, result.ID.Valid)
 	require.Equal(t, taskID[:], result.ID.Bytes[:])
 

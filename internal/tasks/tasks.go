@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/henryhall897/golang-todo-app/internal/core/common"
 	"github.com/henryhall897/golang-todo-app/internal/tasks/gen"
 
 	"github.com/google/uuid"
@@ -91,9 +92,15 @@ func (s *Store) UpdateTask(ctx context.Context, params UpdateTaskParams) (FullTa
 	return result, nil
 }
 
-// DeleteTasks deletes one or more tasks from the database and returns the deleted tasks.
 func (s *Store) DeleteTasks(ctx context.Context, params DeleteTasksParams) ([]FullTask, error) {
-	query := gen.New(s.pool)
+	// Start a transaction
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx) // Ensures rollback in case of failure
+
+	query := gen.New(tx) // Use transaction instead of connection pool
 
 	// Transform the Go struct to a database-compatible struct
 	dbParams, err := toDBDeleteTasksParams(params)
@@ -101,7 +108,7 @@ func (s *Store) DeleteTasks(ctx context.Context, params DeleteTasksParams) ([]Fu
 		return nil, fmt.Errorf("failed to transform delete tasks params: %w", err)
 	}
 
-	// Execute the query
+	// Execute the delete query within the transaction
 	deletedTasks, err := query.DeleteTasks(ctx, dbParams)
 	if err != nil {
 		return nil, fmt.Errorf("failed to delete tasks: %w", err)
@@ -115,6 +122,11 @@ func (s *Store) DeleteTasks(ctx context.Context, params DeleteTasksParams) ([]Fu
 			return nil, fmt.Errorf("failed to transform deleted task: %w", err)
 		}
 		results = append(results, task)
+	}
+
+	// Commit the transaction if everything succeeds
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return results, nil
@@ -219,15 +231,15 @@ func (s *Store) MarkTaskCompleted(ctx context.Context, params UpdateTaskParams) 
 		return FullTask{}, fmt.Errorf("failed to update task: %w", err)
 	}
 
-	// Step 3: Commit the transaction
-	if err = tx.Commit(ctx); err != nil {
-		return FullTask{}, fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
 	// Step 4: Convert the database result back to the application-compatible struct
 	result, err := toFullTask(genTask)
 	if err != nil {
 		return FullTask{}, fmt.Errorf("failed to transform task from database: %w", err)
+	}
+
+	// Step 3: Commit the transaction
+	if err = tx.Commit(ctx); err != nil {
+		return FullTask{}, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return result, nil
@@ -271,6 +283,9 @@ func (s *Store) SearchTasks(ctx context.Context, params SearchTasksParams) ([]Fu
 	// Execute the query
 	dbTasks, err := query.SearchTasks(ctx, dbParams)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("tasks not found: %w", common.ErrNotFound)
+		}
 		return nil, fmt.Errorf("failed to search tasks: %w", err)
 	}
 
@@ -310,7 +325,10 @@ func (s *Store) UpdateTaskPriority(ctx context.Context, params UpdateTaskParams)
 	query := gen.New(tx)
 
 	// Step 1: Update the task priority
-	updatePrioParams := toDBUpdatePriorityParams(params)
+	updatePrioParams, err := toDBUpdatePriorityParams(params)
+	if err != nil {
+		return FullTask{}, fmt.Errorf("failed to transform update priority params: %w", err)
+	}
 	err = query.UpdateTaskPriority(ctx, updatePrioParams)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

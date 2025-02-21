@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/henryhall897/golang-todo-app/internal/core/common"
+	"go.uber.org/zap"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -50,10 +51,10 @@ func TestCreateUserHandler(t *testing.T) {
 	}
 
 	// Initialize mock logger and handler
-	mockLogger := &MockLogger{}
+	logger := zap.NewNop().Sugar()
 	handler := &UserHandler{
 		Store:  mockStore,
-		Logger: mockLogger,
+		Logger: logger,
 	}
 
 	// Setup router with middleware and route
@@ -104,15 +105,16 @@ func TestGetUserByIDHandler(t *testing.T) {
 			if id == sampleUser.ID {
 				return sampleUser, nil
 			}
-			return User{}, &common.UserIDNotFoundError{UserID: id}
+			return User{}, fmt.Errorf("user %s: %w", id, common.ErrNotFound)
+
 		},
 	}
 
 	// Initialize mock logger and handler
-	mockLogger := &MockLogger{}
+	logger := zap.NewNop().Sugar()
 	handler := &UserHandler{
 		Store:  mockStore,
-		Logger: mockLogger,
+		Logger: logger,
 	}
 
 	// Define dynamic route handlers
@@ -193,10 +195,10 @@ func TestListUsersHandler(t *testing.T) {
 	}
 
 	// Initialize mock logger and handler
-	mockLogger := &MockLogger{}
+	logger := zap.NewNop().Sugar()
 	handler := &UserHandler{
 		Store:  mockStore,
-		Logger: mockLogger,
+		Logger: logger,
 	}
 
 	// Create a new HTTP request
@@ -245,10 +247,10 @@ func TestGetUserByEmailHandler(t *testing.T) {
 	}
 
 	// Initialize mock logger and handler
-	mockLogger := &MockLogger{}
+	logger := zap.NewNop().Sugar()
 	handler := &UserHandler{
 		Store:  mockStore,
-		Logger: mockLogger,
+		Logger: logger,
 	}
 
 	// Setup the router and register the route
@@ -319,8 +321,8 @@ func TestUpdateUserHandler(t *testing.T) {
 			if params.ID == sampleUser.ID {
 				// Simulate updating the user
 				updatedUser := sampleUser
-				updatedUser.Name = *params.Name
-				updatedUser.Email = *params.Email
+				updatedUser.Name = params.Name
+				updatedUser.Email = params.Email
 				return updatedUser, nil
 			}
 			return User{}, common.ErrNotFound
@@ -328,10 +330,10 @@ func TestUpdateUserHandler(t *testing.T) {
 	}
 
 	// Initialize mock logger and handler
-	mockLogger := &MockLogger{}
+	logger := zap.NewNop().Sugar()
 	handler := &UserHandler{
 		Store:  mockStore,
-		Logger: mockLogger,
+		Logger: logger,
 	}
 
 	// Define dynamic route handlers
@@ -444,10 +446,10 @@ func TestDeleteUserHandler(t *testing.T) {
 	}
 
 	// Initialize mock logger and handler
-	mockLogger := &MockLogger{}
+	logger := zap.NewNop().Sugar()
 	handler := &UserHandler{
 		Store:  mockStore,
-		Logger: mockLogger,
+		Logger: logger,
 	}
 
 	// Define dynamic route handlers

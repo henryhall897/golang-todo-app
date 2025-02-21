@@ -3,10 +3,10 @@ package users
 import (
 	"net/http"
 
-	"github.com/henryhall897/golang-todo-app/internal/core/logging"
+	"go.uber.org/zap"
 )
 
-func RegisterUserRoutes(router *http.ServeMux, usersStore Store, logger logging.Logger) {
+func RegisterUserRoutes(router *http.ServeMux, usersStore Store, logger *zap.SugaredLogger) {
 	userHandler := &UserHandler{
 		Store:  usersStore,
 		Logger: logger,

@@ -31,8 +31,8 @@ func TestToAppTodoList(t *testing.T) {
 		Title:       "Sample Todo List",
 		Description: pgtype.Text{String: "Sample Description", Valid: true},
 		// Mock pgtype.Timestamptz values to simulate database output.
-		CreatedAt: pgtype.Timestamptz{Time: validTime, Valid: true},
-		UpdatedAt: pgtype.Timestamptz{Time: validTime, Valid: true},
+		CreatedAt: pgtype.Timestamp{Time: validTime, Valid: true},
+		UpdatedAt: pgtype.Timestamp{Time: validTime, Valid: true},
 	}
 
 	// Act

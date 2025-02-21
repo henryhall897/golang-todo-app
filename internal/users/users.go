@@ -55,7 +55,8 @@ func (s *UserStore) GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, common.ErrNotFound
 	} else if err != nil {
-		return User{}, &common.UserIDNotFoundError{UserID: id}
+		return User{}, fmt.Errorf("user %s: %w", id, common.ErrNotFound)
+
 	}
 
 	result, err := dbToUsers(user)

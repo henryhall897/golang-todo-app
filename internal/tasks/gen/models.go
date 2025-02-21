@@ -9,31 +9,31 @@ import (
 )
 
 type Task struct {
-	ID          pgtype.UUID        `json:"id"`
-	ListID      pgtype.UUID        `json:"list_id"`
-	Title       pgtype.Text        `json:"title"`
-	Description pgtype.Text        `json:"description"`
-	Status      pgtype.Text        `json:"status"`
-	Priority    pgtype.Int4        `json:"priority"`
-	DueDate     pgtype.Timestamptz `json:"due_date"`
-	CompletedAt pgtype.Timestamptz `json:"completed_at"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	ID          pgtype.UUID      `json:"id"`
+	ListID      pgtype.UUID      `json:"list_id"`
+	Title       pgtype.Text      `json:"title"`
+	Description pgtype.Text      `json:"description"`
+	Status      pgtype.Text      `json:"status"`
+	Priority    pgtype.Int4      `json:"priority"`
+	DueDate     pgtype.Timestamp `json:"due_date"`
+	CompletedAt pgtype.Timestamp `json:"completed_at"`
+	CreatedAt   pgtype.Timestamp `json:"created_at"`
+	UpdatedAt   pgtype.Timestamp `json:"updated_at"`
 }
 
 type Todolist struct {
-	ID          pgtype.UUID        `json:"id"`
-	UserID      pgtype.UUID        `json:"user_id"`
-	Title       string             `json:"title"`
-	Description pgtype.Text        `json:"description"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	ID          pgtype.UUID      `json:"id"`
+	UserID      pgtype.UUID      `json:"user_id"`
+	Title       string           `json:"title"`
+	Description pgtype.Text      `json:"description"`
+	CreatedAt   pgtype.Timestamp `json:"created_at"`
+	UpdatedAt   pgtype.Timestamp `json:"updated_at"`
 }
 
 type User struct {
-	ID        pgtype.UUID        `json:"id"`
-	Name      string             `json:"name"`
-	Email     string             `json:"email"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	ID        pgtype.UUID      `json:"id"`
+	Name      string           `json:"name"`
+	Email     string           `json:"email"`
+	CreatedAt pgtype.Timestamp `json:"created_at"`
+	UpdatedAt pgtype.Timestamp `json:"updated_at"`
 }

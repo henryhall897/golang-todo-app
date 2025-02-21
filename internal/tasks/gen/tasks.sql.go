@@ -18,12 +18,12 @@ RETURNING id, list_id, title, description, status, priority, due_date, completed
 `
 
 type CreateTaskParams struct {
-	ListID      pgtype.UUID        `json:"list_id"`
-	Title       pgtype.Text        `json:"title"`
-	Description pgtype.Text        `json:"description"`
-	Status      pgtype.Text        `json:"status"`
-	DueDate     pgtype.Timestamptz `json:"due_date"`
-	Priority    pgtype.Int4        `json:"priority"`
+	ListID      pgtype.UUID      `json:"list_id"`
+	Title       pgtype.Text      `json:"title"`
+	Description pgtype.Text      `json:"description"`
+	Status      pgtype.Text      `json:"status"`
+	DueDate     pgtype.Timestamp `json:"due_date"`
+	Priority    pgtype.Int4      `json:"priority"`
 }
 
 func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (Task, error) {
@@ -322,14 +322,14 @@ RETURNING tasks.id, tasks.list_id, tasks.title, tasks.description, tasks.status,
 `
 
 type UpdateTaskParams struct {
-	ID          pgtype.UUID        `json:"id"`
-	UserID      pgtype.UUID        `json:"user_id"`
-	Title       pgtype.Text        `json:"title"`
-	Description pgtype.Text        `json:"description"`
-	Status      pgtype.Text        `json:"status"`
-	DueDate     pgtype.Timestamptz `json:"due_date"`
-	Priority    pgtype.Int4        `json:"priority"`
-	CompletedAt pgtype.Timestamptz `json:"completed_at"`
+	ID          pgtype.UUID      `json:"id"`
+	UserID      pgtype.UUID      `json:"user_id"`
+	Title       pgtype.Text      `json:"title"`
+	Description pgtype.Text      `json:"description"`
+	Status      pgtype.Text      `json:"status"`
+	DueDate     pgtype.Timestamp `json:"due_date"`
+	Priority    pgtype.Int4      `json:"priority"`
+	CompletedAt pgtype.Timestamp `json:"completed_at"`
 }
 
 func (q *Queries) UpdateTask(ctx context.Context, arg UpdateTaskParams) (Task, error) {

@@ -293,8 +293,8 @@ func (u *UserTestSuite) TestUpdateUser() {
 	t.Run("Update User Name and Email", func(t *testing.T) {
 		updateParams := UpdateUserParams{
 			ID:    createdUser.ID,
-			Name:  &updatedName,
-			Email: &updatedEmail,
+			Name:  updatedName,
+			Email: updatedEmail,
 		}
 
 		// Act - Update the user
@@ -321,8 +321,9 @@ func (u *UserTestSuite) TestUpdateUser() {
 		// Arrange - Only update the name
 		partialUpdatedName := "Jane Partial"
 		partialUpdateParams := UpdateUserParams{
-			ID:   createdUser.ID,
-			Name: &partialUpdatedName, // Email remains unchanged
+			ID:    createdUser.ID,
+			Name:  partialUpdatedName,
+			Email: updatedEmail, // Email remains unchanged
 		}
 
 		// Act - Partial update
@@ -366,7 +367,7 @@ func (u *UserTestSuite) TestDeleteUser() {
 
 		// Assert - User should no longer exist
 		u.Require().Error(err)
-		u.ErrorIs(err, common.ErrNotFound, "Expected ErrNotFound for deleted user")
+		u.ErrorIs(err, common.ErrNotFound, "not found")
 	})
 
 	t.Run("Delete Non-Existent User", func(t *testing.T) {

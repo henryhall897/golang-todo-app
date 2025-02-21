@@ -23,7 +23,7 @@ func TestTransform(t *testing.T) {
 func TestDBToUsers(t *testing.T) {
 	// Arrange
 	validUUID := uuid.New()
-	validTime := time.Now()
+	validTime := time.Now().UTC()
 
 	genUser := gen.User{
 		ID: pgtype.UUID{
@@ -32,8 +32,8 @@ func TestDBToUsers(t *testing.T) {
 		},
 		Name:      "John Doe",
 		Email:     "john.doe@example.com",
-		CreatedAt: pgtype.Timestamptz{Time: validTime, Valid: true}, // Use Timestamptz
-		UpdatedAt: pgtype.Timestamptz{Time: validTime, Valid: true}, // Use Timestamptz
+		CreatedAt: pgtype.Timestamp{Time: validTime, Valid: true}, // Use Timestamptz
+		UpdatedAt: pgtype.Timestamp{Time: validTime, Valid: true}, // Use Timestamptz
 	}
 
 	// Act
@@ -77,8 +77,8 @@ func TestDBToUsersInvalidTimestamp(t *testing.T) {
 		},
 		Name:      "Jane Doe",
 		Email:     "jane.doe@example.com",
-		CreatedAt: pgtype.Timestamptz{Valid: false}, // Invalid timestamp
-		UpdatedAt: pgtype.Timestamptz{Valid: false}, // Invalid timestamp
+		CreatedAt: pgtype.Timestamp{Valid: false}, // Invalid timestamp
+		UpdatedAt: pgtype.Timestamp{Valid: false}, // Invalid timestamp
 	}
 
 	// Act
@@ -101,8 +101,8 @@ func TestToDBUpdateUserParams(t *testing.T) {
 
 	inputParams := UpdateUserParams{
 		ID:    validUUID,
-		Name:  &name, // Using pointers as expected in the function
-		Email: &email,
+		Name:  name,
+		Email: email,
 	}
 
 	// Act
@@ -111,8 +111,8 @@ func TestToDBUpdateUserParams(t *testing.T) {
 	// Assert
 	require.NoError(t, err)
 	require.Equal(t, validUUID, uuid.UUID(dbParams.ID.Bytes), "UUID should match")
-	require.Equal(t, name, dbParams.Column2, "Name should match")
-	require.Equal(t, email, dbParams.Column3, "Email should match")
+	require.Equal(t, name, dbParams.Name, "Name should match")
+	require.Equal(t, email, dbParams.Email, "Email should match")
 }
 
 func TestToDBCreateUserParams(t *testing.T) {
