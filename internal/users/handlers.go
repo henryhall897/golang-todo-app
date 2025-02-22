@@ -1,7 +1,6 @@
 package users
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -13,8 +12,9 @@ import (
 )
 
 type UserHandler struct {
-	Store  Store
-	Logger *zap.SugaredLogger
+	Repo    UserRepository
+	Service Service
+	Logger  *zap.SugaredLogger
 }
 
 // CreateUserHandler handles creating a new user
@@ -26,20 +26,28 @@ func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) 
 
 	// Decode request body
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		common.WriteJSONError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
+	// Call service layer to create the user
 	newUser := CreateUserParams{
 		Name:  req.Name,
 		Email: req.Email,
 	}
 
-	// Call store to create the user
-	user, err := h.Store.CreateUser(context.Background(), newUser)
+	user, err := h.Service.CreateUser(r.Context(), newUser)
 	if err != nil {
-		h.Logger.Errorw("Failed to create user", "error", err)
-		http.Error(w, "Failed to create user", http.StatusInternalServerError)
+		switch err {
+		case common.ErrEmailAlreadyExists:
+			common.WriteJSONError(w, http.StatusConflict, "Email already exists")
+
+		case common.ErrInvalidRequestBody:
+			common.WriteJSONError(w, http.StatusBadRequest, "Invalid request body")
+
+		default:
+			common.WriteJSONError(w, http.StatusInternalServerError, "Internal server error")
+		}
 		return
 	}
 
@@ -47,8 +55,7 @@ func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(user); err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-		return
+		common.WriteJSONError(w, http.StatusInternalServerError, "Failed to encode response")
 	}
 }
 
@@ -67,7 +74,7 @@ func (h *UserHandler) GetUserByIDHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	user, err := h.Store.GetUserByID(r.Context(), userID)
+	user, err := h.Repo.GetUserByID(r.Context(), userID)
 	if err != nil {
 		h.Logger.Errorw("Failed to get user by ID", "error", err)
 		http.Error(w, "User not found", http.StatusNotFound)
@@ -92,7 +99,7 @@ func (h *UserHandler) GetUserByEmailHandler(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Call store to get the user by email
-	user, err := h.Store.GetUserByEmail(r.Context(), email)
+	user, err := h.Repo.GetUserByEmail(r.Context(), email)
 	if errors.Is(err, common.ErrNotFound) {
 		h.Logger.Errorw("User not found", "email", email)
 		http.Error(w, "User not found", http.StatusNotFound)
@@ -115,7 +122,7 @@ func (h *UserHandler) GetUserByEmailHandler(w http.ResponseWriter, r *http.Reque
 // ListUsersHandler handles retrieving all users
 func (h *UserHandler) ListUsersHandler(w http.ResponseWriter, r *http.Request) {
 	// Call store to list users using the request's context
-	userList, err := h.Store.ListUsers(r.Context(), ListUsersParams{})
+	userList, err := h.Repo.ListUsers(r.Context(), ListUsersParams{})
 	if err != nil {
 		h.Logger.Errorw("Failed to list users", "error", err, "path", r.URL.Path, "method", r.Method)
 		http.Error(w, "Failed to list users", http.StatusInternalServerError)
@@ -179,7 +186,7 @@ func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Call the store to update the user
-	updatedUser, err := h.Store.UpdateUser(r.Context(), updateUserParams)
+	updatedUser, err := h.Repo.UpdateUser(r.Context(), updateUserParams)
 	if errors.Is(err, common.ErrNotFound) {
 		h.Logger.Errorw("User not found", "userID", userID)
 		http.Error(w, "User not found", http.StatusNotFound)
@@ -216,7 +223,7 @@ func (h *UserHandler) DeleteUserHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Call store to delete the user
-	err = h.Store.DeleteUser(r.Context(), id)
+	err = h.Repo.DeleteUser(r.Context(), id)
 	if errors.Is(err, common.ErrNotFound) {
 		h.Logger.Errorw("User not found", "userID", id)
 		http.Error(w, "User not found", http.StatusNotFound)

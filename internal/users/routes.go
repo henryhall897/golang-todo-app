@@ -6,9 +6,9 @@ import (
 	"go.uber.org/zap"
 )
 
-func RegisterUserRoutes(router *http.ServeMux, usersStore Store, logger *zap.SugaredLogger) {
+func RegisterUserRoutes(router *http.ServeMux, usersRepo UserRepository, logger *zap.SugaredLogger) {
 	userHandler := &UserHandler{
-		Store:  usersStore,
+		Repo:   usersRepo,
 		Logger: logger,
 	}
 
