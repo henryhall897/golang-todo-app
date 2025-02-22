@@ -10,21 +10,32 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type UserStore struct {
+// UserRepository defines the methods required for user operations.
+type UserRepository interface {
+	CreateUser(ctx context.Context, newUserParams CreateUserParams) (User, error)
+	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
+	GetUserByEmail(ctx context.Context, email string) (User, error)
+	ListUsers(ctx context.Context, params ListUsersParams) ([]User, error)
+	UpdateUser(ctx context.Context, updateUserparams UpdateUserParams) (User, error)
+	DeleteUser(ctx context.Context, id uuid.UUID) error
+}
+
+type Repository struct {
 	pool *pgxpool.Pool
 }
 
-func New(pool *pgxpool.Pool) *UserStore {
-	return &UserStore{
+func New(pool *pgxpool.Pool) *Repository {
+	return &Repository{
 		pool: pool,
 	}
 }
 
-func (s *UserStore) CreateUser(ctx context.Context, newUser CreateUserParams) (User, error) {
+func (s *Repository) CreateUser(ctx context.Context, newUser CreateUserParams) (User, error) {
 	query := gen.New(s.pool)
 
 	// Convert the CreateUserParams to gen.CreateUserParams
@@ -33,11 +44,14 @@ func (s *UserStore) CreateUser(ctx context.Context, newUser CreateUserParams) (U
 	// Execute the query to create a new user
 	user, err := query.CreateUser(ctx, pgNewUser)
 	if err != nil {
-		return User{}, fmt.Errorf("failed to create user: %w",
-			err)
+		// Check if the error is a unique constraint violation
+		if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.Code == "23505" { // 23505 is PostgreSQL's unique violation error code
+			return User{}, fmt.Errorf("%w", common.ErrEmailAlreadyExists)
+		}
+		return User{}, fmt.Errorf("failed to create user: %w", err)
 	}
 
-	result, err := dbToUsers(user)
+	result, err := pgToUsers(user)
 	if err != nil {
 		return User{}, err
 	}
@@ -45,7 +59,7 @@ func (s *UserStore) CreateUser(ctx context.Context, newUser CreateUserParams) (U
 	return result, nil
 }
 
-func (s *UserStore) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
+func (s *Repository) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 	query := gen.New(s.pool)
 
 	user, err := query.GetUserByID(ctx, pgtype.UUID{
@@ -59,7 +73,7 @@ func (s *UserStore) GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 
 	}
 
-	result, err := dbToUsers(user)
+	result, err := pgToUsers(user)
 	if err != nil {
 		return User{}, err
 	}
@@ -67,7 +81,7 @@ func (s *UserStore) GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	return result, nil
 }
 
-func (s *UserStore) GetUserByEmail(ctx context.Context, email string) (User, error) {
+func (s *Repository) GetUserByEmail(ctx context.Context, email string) (User, error) {
 	query := gen.New(s.pool)
 
 	user, err := query.GetUserByEmail(ctx, email)
@@ -77,7 +91,7 @@ func (s *UserStore) GetUserByEmail(ctx context.Context, email string) (User, err
 		return User{}, fmt.Errorf("failed to get user by email %w", err)
 	}
 
-	result, err := dbToUsers(user)
+	result, err := pgToUsers(user)
 	if err != nil {
 		return User{}, err
 	}
@@ -85,7 +99,7 @@ func (s *UserStore) GetUserByEmail(ctx context.Context, email string) (User, err
 	return result, nil
 }
 
-func (s *UserStore) ListUsers(ctx context.Context, listParams ListUsersParams) ([]User, error) {
+func (s *Repository) ListUsers(ctx context.Context, listParams ListUsersParams) ([]User, error) {
 	query := gen.New(s.pool)
 	// Convert the ListUsersParams to gen.ListUsersParams
 	pgParams := toDBListParams(listParams)
@@ -102,7 +116,7 @@ func (s *UserStore) ListUsers(ctx context.Context, listParams ListUsersParams) (
 	// Convert the raw database results into the User type
 	results := make([]User, 0, len(users))
 	for _, u := range users {
-		result, err := dbToUsers(u)
+		result, err := pgToUsers(u)
 		if err != nil {
 			return []User{}, fmt.Errorf("failed to convert user: %w", err)
 		}
@@ -112,7 +126,7 @@ func (s *UserStore) ListUsers(ctx context.Context, listParams ListUsersParams) (
 	return results, nil
 }
 
-func (s *UserStore) UpdateUser(ctx context.Context, updateParams UpdateUserParams) (User, error) {
+func (s *Repository) UpdateUser(ctx context.Context, updateParams UpdateUserParams) (User, error) {
 	query := gen.New(s.pool)
 
 	// Transform input to the required database structure
@@ -130,7 +144,7 @@ func (s *UserStore) UpdateUser(ctx context.Context, updateParams UpdateUserParam
 	}
 
 	// Convert the updated user to the application-level model
-	updatedUser, err := dbToUsers(dbUpdatedUser)
+	updatedUser, err := pgToUsers(dbUpdatedUser)
 	if err != nil {
 		return User{}, fmt.Errorf("failed to convert updated user: %w", err)
 	}
@@ -138,7 +152,7 @@ func (s *UserStore) UpdateUser(ctx context.Context, updateParams UpdateUserParam
 	return updatedUser, nil
 }
 
-func (s *UserStore) DeleteUser(ctx context.Context, id uuid.UUID) error {
+func (s *Repository) DeleteUser(ctx context.Context, id uuid.UUID) error {
 	query := gen.New(s.pool)
 
 	// Convert uuid.UUID to pgtype.UUID

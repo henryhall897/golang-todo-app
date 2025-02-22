@@ -20,7 +20,7 @@ type UserTestSuite struct {
 	suite.Suite
 	pgt   *dbtest.PostgresTest
 	ctx   context.Context
-	store *UserStore
+	store *Repository
 }
 
 func TestUsers(t *testing.T) {
@@ -115,12 +115,12 @@ func (u *UserTestSuite) TestCreateUser() {
 		_, err := u.store.CreateUser(ctx, duplicateUser)
 		u.Require().NoError(err)
 
-		// Act - Try creating user with same email
+		// Act - Try creating user with the same email
 		_, err = u.store.CreateUser(ctx, duplicateUser)
 
-		// Assert - Expect duplicate key error
+		// Assert - Expect our defined unique constraint error
 		u.Require().Error(err)
-		u.Contains(err.Error(), "duplicate key value violates unique constraint")
+		u.ErrorIs(err, common.ErrEmailAlreadyExists)
 	})
 }
 
