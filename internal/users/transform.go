@@ -7,7 +7,7 @@ import (
 	"github.com/henryhall897/golang-todo-app/internal/users/gen"
 )
 
-func dbToUsers(users gen.User) (User, error) {
+func pgToUsers(users gen.User) (User, error) {
 	if !users.ID.Valid {
 		return User{}, fmt.Errorf("invalid user id")
 	}

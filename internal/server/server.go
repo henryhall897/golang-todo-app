@@ -17,12 +17,12 @@ type Server struct {
 	Logger      *zap.SugaredLogger
 	BindAddress string
 	Port        string
-	UserStore   users.Store
+	UserStore   users.UserRepository
 	httpServer  *http.Server
 }
 
 // NewServer initializes a new Server instance.
-func NewServer(logger *zap.SugaredLogger, bindAddress string, port string, userStore users.Store) *Server {
+func NewServer(logger *zap.SugaredLogger, bindAddress string, port string, userStore users.UserRepository) *Server {
 	return &Server{
 		Logger:      logger,
 		BindAddress: bindAddress,

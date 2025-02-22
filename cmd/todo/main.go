@@ -9,9 +9,6 @@ import (
 	"github.com/henryhall897/golang-todo-app/internal/database"
 	"github.com/henryhall897/golang-todo-app/internal/server"
 	"github.com/henryhall897/golang-todo-app/internal/users"
-
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
 func main() {

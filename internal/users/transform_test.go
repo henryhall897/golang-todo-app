@@ -37,7 +37,7 @@ func TestDBToUsers(t *testing.T) {
 	}
 
 	// Act
-	user, err := dbToUsers(genUser) // Direct call
+	user, err := pgToUsers(genUser) // Direct call
 
 	// Assert
 	require.NoError(t, err)
@@ -59,7 +59,7 @@ func TestDBToUsersInvalidUUID(t *testing.T) {
 	}
 
 	// Act
-	_, err := dbToUsers(genUser) // Direct call
+	_, err := pgToUsers(genUser) // Direct call
 
 	// Assert
 	require.Error(t, err)
@@ -82,7 +82,7 @@ func TestDBToUsersInvalidTimestamp(t *testing.T) {
 	}
 
 	// Act
-	user, err := dbToUsers(genUser) // Direct call
+	user, err := pgToUsers(genUser) // Direct call
 
 	// Assert
 	require.NoError(t, err)

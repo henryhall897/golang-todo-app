@@ -53,7 +53,7 @@ func TestCreateUserHandler(t *testing.T) {
 	// Initialize mock logger and handler
 	logger := zap.NewNop().Sugar()
 	handler := &UserHandler{
-		Store:  mockStore,
+		Repo:   mockStore,
 		Logger: logger,
 	}
 
@@ -113,7 +113,7 @@ func TestGetUserByIDHandler(t *testing.T) {
 	// Initialize mock logger and handler
 	logger := zap.NewNop().Sugar()
 	handler := &UserHandler{
-		Store:  mockStore,
+		Repo:   mockStore,
 		Logger: logger,
 	}
 
@@ -197,7 +197,7 @@ func TestListUsersHandler(t *testing.T) {
 	// Initialize mock logger and handler
 	logger := zap.NewNop().Sugar()
 	handler := &UserHandler{
-		Store:  mockStore,
+		Repo:   mockStore,
 		Logger: logger,
 	}
 
@@ -249,7 +249,7 @@ func TestGetUserByEmailHandler(t *testing.T) {
 	// Initialize mock logger and handler
 	logger := zap.NewNop().Sugar()
 	handler := &UserHandler{
-		Store:  mockStore,
+		Repo:   mockStore,
 		Logger: logger,
 	}
 
@@ -332,7 +332,7 @@ func TestUpdateUserHandler(t *testing.T) {
 	// Initialize mock logger and handler
 	logger := zap.NewNop().Sugar()
 	handler := &UserHandler{
-		Store:  mockStore,
+		Repo:   mockStore,
 		Logger: logger,
 	}
 
@@ -448,7 +448,7 @@ func TestDeleteUserHandler(t *testing.T) {
 	// Initialize mock logger and handler
 	logger := zap.NewNop().Sugar()
 	handler := &UserHandler{
-		Store:  mockStore,
+		Repo:   mockStore,
 		Logger: logger,
 	}
 
