@@ -1,10 +1,8 @@
-//go:build mage
-
 package main
 
 import (
 	"fmt"
-	"os" // mg contains helpful utility functions, like Deps
+	"os"
 
 	"github.com/magefile/mage/sh"
 )

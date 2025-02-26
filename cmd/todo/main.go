@@ -1,48 +1,119 @@
+// Package main is the entry point to the application
 package main
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
+	"github.com/henryhall897/golang-todo-app/database"
 	"github.com/henryhall897/golang-todo-app/internal/config"
 	"github.com/henryhall897/golang-todo-app/internal/core/logging"
-	"github.com/henryhall897/golang-todo-app/internal/database"
+	"github.com/henryhall897/golang-todo-app/internal/router"
 	"github.com/henryhall897/golang-todo-app/internal/server"
-	"github.com/henryhall897/golang-todo-app/internal/users"
+	"github.com/henryhall897/golang-todo-app/internal/users/handler"
+	"github.com/henryhall897/golang-todo-app/internal/users/repository"
+	"github.com/henryhall897/golang-todo-app/internal/users/services"
+	"go.uber.org/zap"
 )
 
+// Version and BuildDate are populated at build time
+var (
+	version   string
+	buildDate string
+)
+
+// AppConfig holds the application configuration
+type AppConfig struct {
+	Logger   config.LoggingConfig
+	Database config.DatabaseConfig
+	Server   config.ServerConfig
+}
+
 func main() {
-	ctx := context.Background()
-	// Load environment variables
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	// Load configuration
 	cfg, err := config.LoadConfig(ctx)
 	if err != nil {
-		log.Fatalf("Failed to load environment variables: %v", err)
+		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
 	// Initialize logger
-	logger := logging.InitializeLogger(cfg.LogLevel, cfg.LogFormat)
+	logger := logging.InitializeLogger(cfg.Logger.Level, cfg.Logger.Format)
 	if err != nil {
 		log.Fatalf("Failed to initialize logger: %v", err)
 	}
-	defer logger.Sync()
+	defer func() {
+		if err := logger.Sync(); err != nil {
+			fmt.Printf("Logger sync failed: %v\n", err)
+		}
+	}()
+
 	sugarLogger := logger.Sugar()
 
-	// Apply database migrations
-	if err := database.ApplyMigrations(cfg.DatabaseURL); err != nil {
-		sugarLogger.Fatalf("Failed to apply migrations: %v", err)
+	// Graceful shutdown handling
+	defer func() {
+		if r := recover(); r != nil {
+			sugarLogger.Fatal("Application panicked", "error", r)
+		}
+		stop()
+	}()
+
+	// Run the application
+	err = run(ctx, sugarLogger, cfg)
+	if err != nil {
+		sugarLogger.Errorw("Application error", "error", err)
+		os.Exit(1)
 	}
 
-	// Initialize database connection pool
-	pool, err := database.InitializeDatabasePool(sugarLogger)
+	sugarLogger.Info("Application shut down successfully")
+}
+
+func run(ctx context.Context, logger *zap.SugaredLogger, cfg *config.AppConfig) error {
+	// Log version details
+	if version == "" {
+		version = "dev"
+	}
+	if buildDate == "" {
+		buildDate = time.Now().Format(time.RFC3339) // Fallback to current time
+	}
+	logger.Infow("Version Information", "version", version, "buildDate", buildDate)
+
+	// Initialize database connection
+	logger.Info("Initializing database connection")
+	pool, err := database.InitializeDatabasePool(logger)
 	if err != nil {
-		sugarLogger.Fatalf("Failed to connect to the database: %v", err)
+		return fmt.Errorf("failed to connect to database: %w", err)
 	}
 	defer pool.Close()
 
-	// Initialize stores
-	userStore := users.New(pool)
+	// Run database migrations
+	logger.Info("Running database migrations")
+	if err := database.ApplyMigrations(ctx, cfg.Database.DatabaseURL); err != nil {
+		return fmt.Errorf("migration error: %w", err)
+	}
+	logger.Info("Database migrations completed successfully")
 
-	// Initialize server
-	srv := server.NewServer(sugarLogger, cfg.ServerBindAddress, cfg.ServerPort, userStore)
-	srv.Start()
+	// Initialize user store
+	userStore := repository.New(pool)
+
+	// Create router
+	rt := router.NewRouter([]router.Routes{
+		handler.NewUserRoutes(handler.NewUserHandler(services.NewService(userStore, logger), logger)),
+		// Add more route modules here (e.g., tasks, lists)
+	})
+
+	// Start the HTTP server
+	srv := server.NewHTTPServer(&config.ServerConfig{
+		BindAddress: cfg.Server.BindAddress,
+		Port:        cfg.Server.Port,
+		Logger:      logger,
+	})
+	return srv.Serve(ctx, rt.Mux)
 }

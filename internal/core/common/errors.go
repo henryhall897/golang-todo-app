@@ -3,13 +3,15 @@ package common
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 )
 
 // ErrNotFound indicates that a record queried for in the database was not found.
 var ErrNotFound = errors.New("not found")
 var ErrEmailAlreadyExists = errors.New("email already exists")
-var ErrInvalidRequestBody = errors.New("invalid request body")
+var ErrValidation = errors.New("validation failed")
+var ErrInternalServerError = errors.New("internal server error")
 
 // ErrorResponse represents a standardized JSON error response.
 type ErrorResponse struct {
@@ -21,8 +23,13 @@ type ErrorResponse struct {
 func WriteJSONError(w http.ResponseWriter, statusCode int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(ErrorResponse{
+
+	err := json.NewEncoder(w).Encode(ErrorResponse{
 		Code:    statusCode,
 		Message: message,
 	})
+	if err != nil {
+		// Log error instead of sending another response (prevents double-write)
+		fmt.Printf("Failed to encode JSON error response: %v\n", err)
+	}
 }
