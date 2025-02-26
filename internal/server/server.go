@@ -1,80 +1,78 @@
+// Package server listens on the port for HTTP 1/2 connections and sends them to the router.
 package server
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
-	"os/signal"
-	"syscall"
 	"time"
 
-	"github.com/henryhall897/golang-todo-app/internal/middleware"
-	"github.com/henryhall897/golang-todo-app/internal/users"
-	"go.uber.org/zap"
+	"github.com/henryhall897/golang-todo-app/internal/config"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 )
 
-// Server encapsulates all server dependencies and configuration.
-type Server struct {
-	Logger      *zap.SugaredLogger
-	BindAddress string
-	Port        string
-	UserStore   users.Store
-	httpServer  *http.Server
+// HTTPServer is a server that listens for HTTP/1.x and also supports HTTP/2 cleartext (h2c).
+type HTTPServer struct {
+	cfg *config.ServerConfig
 }
 
-// NewServer initializes a new Server instance.
-func NewServer(logger *zap.SugaredLogger, bindAddress string, port string, userStore users.Store) *Server {
-	return &Server{
-		Logger:      logger,
-		BindAddress: bindAddress,
-		Port:        port,
-		UserStore:   userStore,
-	}
+// NewHTTPServer creates a new HTTP server.
+func NewHTTPServer(config *config.ServerConfig) *HTTPServer {
+	return &HTTPServer{cfg: config}
 }
 
-// Start initializes routes and starts the HTTP server with graceful shutdown.
-func (s *Server) Start() {
-	mux := http.NewServeMux()
+// Serve starts the HTTP server and supports HTTP/2 cleartext (h2c).
+func (s *HTTPServer) Serve(ctx context.Context, handler http.Handler) error {
+	s.cfg.Logger.Infof("Starting server on %s:%s", s.cfg.BindAddress, s.cfg.Port)
 
-	// Register user routes
-	users.RegisterUserRoutes(mux, s.UserStore, s.Logger)
-
-	// Apply middleware to limit request body size (1MB limit)
-	limitedMux := middleware.LimitRequestBodyMiddleware(1 << 20)(mux)
-
-	// Create HTTP server
-	s.httpServer = &http.Server{
-		Addr:         s.BindAddress + ":" + s.Port,
-		Handler:      limitedMux,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
+	// Create an HTTP/2 server
+	h2s := &http2.Server{
+		MaxConcurrentStreams: 250,
 	}
 
-	// Set up graceful shutdown
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
+	// Wrap the handler to support h2c (HTTP/2 without TLS)
+	wrappedHandler := h2c.NewHandler(handler, h2s)
 
-	// Run server in a separate goroutine
+	// Initialize HTTP server
+	srv := &http.Server{
+		Addr:    fmt.Sprintf("%s:%s", s.cfg.BindAddress, s.cfg.Port),
+		Handler: wrappedHandler,
+	}
+
+	// Channel to capture errors
+	errCh := make(chan error, 1)
+
+	// Goroutine to handle graceful shutdown
 	go func() {
-		s.Logger.Infof("Server running on http://%s:%s", s.BindAddress, s.Port)
-		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			s.Logger.Fatalf("Server error: %v", err)
+		<-ctx.Done()
+
+		s.cfg.Logger.Info("Shutting down server...")
+
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			select {
+			case errCh <- err:
+			default:
+			}
 		}
 	}()
 
-	// Wait for termination signal
-	<-ctx.Done()
-	s.Shutdown(ctx)
-}
-
-// Shutdown gracefully stops the server
-func (s *Server) Shutdown(ctx context.Context) {
-	s.Logger.Info("Shutting down server...")
-
-	// Attempt graceful shutdown
-	shutdownCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	if err := s.httpServer.Shutdown(shutdownCtx); err != nil {
-		s.Logger.Fatalf("Server shutdown failed: %v", err)
+	// Start the HTTP server
+	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return fmt.Errorf("failed to serve: %w", err)
 	}
-	s.Logger.Info("Server shut down gracefully.")
+
+	s.cfg.Logger.Info("Server stopped")
+
+	// Return any shutdown errors
+	select {
+	case err := <-errCh:
+		return fmt.Errorf("failed to shutdown: %w", err)
+	default:
+		return nil
+	}
 }

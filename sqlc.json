@@ -1,0 +1,57 @@
+{
+    "version": "2",
+    "sql": [
+      {
+        "schema": "./database/migrations",
+        "queries": "./internal/users/repository/queries/",
+        "engine": "postgresql",
+        "gen": {
+          "go": {
+            "package": "userstore",
+            "out": "./gen/queries/userstore",
+            "sql_package": "pgx/v5",
+            "emit_json_tags": true,
+            "emit_prepared_queries": true,
+            "emit_interface": true
+          }
+        }
+      },
+      {
+        "schema": "./database/migrations",
+        "queries": "./internal/todolists/queries/",
+        "engine": "postgresql",
+        "gen": {
+          "go": {
+            "package": "todostore",
+            "out": "./gen/queries/todostore",
+            "sql_package": "pgx/v5",
+            "emit_json_tags": true,
+            "emit_prepared_queries": true,
+            "emit_interface": true
+          }
+        }
+      },
+      {
+        "schema": "./database/migrations",
+        "queries": "./internal/tasks/queries/",
+        "engine": "postgresql",
+        "gen": {
+          "go": {
+            "package": "taskstore",
+            "out": "./gen/queries/taskstore",
+            "sql_package": "pgx/v5",
+            "emit_json_tags": true,
+            "emit_prepared_queries": true,
+            "emit_interface": true,
+            "overrides": [
+              {
+                "column": "tasks.title",
+                "go_type": "github.com/jackc/pgx/v5/pgtype.Text"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+  

@@ -98,7 +98,7 @@ func (s *Store) DeleteTasks(ctx context.Context, params DeleteTasksParams) ([]Fu
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback(ctx) // Ensures rollback in case of failure
+	defer func() { _ = tx.Rollback(ctx) }() // Ensures rollback in case of failure
 
 	query := gen.New(tx) // Use transaction instead of connection pool
 

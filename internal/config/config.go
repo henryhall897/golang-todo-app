@@ -2,27 +2,45 @@ package config
 
 import (
 	"context"
-	"log"
+	"fmt"
 
 	"github.com/sethvargo/go-envconfig"
+	"go.uber.org/zap"
 )
 
-type Config struct {
-	DatabaseURL       string `env:"DATABASE_URL,required"`
-	MinConns          int32  `env:"POSTGRES_POOL_MIN_CONN,default=1"`
-	MaxConns          int32  `env:"POSTGRES_POOL_MAX_CONN,default=10"`
-	ServerBindAddress string `env:"SERVER_BIND_ADDRESS,default=0.0.0.0"`
-	ServerPort        string `env:"SERVER_PORT,default=8080"`
-	LogLevel          string `env:"LOG_LEVEL,default=info"`
-	LogFormat         bool   `env:"LOG_FORMAT,default=false"`
+// DatabaseConfig holds database configuration.
+type DatabaseConfig struct {
+	DatabaseURL string `env:"DATABASE_URL,required"`
+	MinConns    int32  `env:"POSTGRES_POOL_MIN_CONN,default=1"`
+	MaxConns    int32  `env:"POSTGRES_POOL_MAX_CONN,default=10"`
 }
 
-// LoadConfig initializes the Config struct by reading from environment variables
-func LoadConfig(ctx context.Context) (*Config, error) {
-	var cfg Config
+// ServerConfig holds server configuration.
+type ServerConfig struct {
+	BindAddress string `env:"BIND_ADDRESS,default=0.0.0.0"`
+	Port        string `env:"PORT,default=8080"`
+	Logger      *zap.SugaredLogger
+}
+
+// LoggingConfig holds logging configuration.
+type LoggingConfig struct {
+	Level  string `env:"LOG_LEVEL,default=info"`
+	Format bool   `env:"LOG_FORMAT,default=false"`
+}
+
+// AppConfig holds the complete application configuration
+type AppConfig struct {
+	Database DatabaseConfig
+	Server   ServerConfig
+	Logger   LoggingConfig
+}
+
+// LoadConfig loads the entire configuration from environment variables
+func LoadConfig(ctx context.Context) (*AppConfig, error) {
+	var cfg AppConfig
+
 	if err := envconfig.Process(ctx, &cfg); err != nil {
-		log.Fatalf("Failed to load environment variables: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 	return &cfg, nil
 }

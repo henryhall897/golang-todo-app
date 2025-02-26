@@ -1,5 +1,5 @@
 # Stage 1: Build the Go application
-FROM golang:1.23 AS builder
+FROM golang:1.24 AS builder
 
 # Set the working directory inside the container
 WORKDIR /app
@@ -28,9 +28,6 @@ WORKDIR /app
 
 # Copy the statically linked binary from the builder stage
 COPY --from=builder /app/todo .
-
-# Copy the migrations directory into the container
-COPY --from=builder /app/migrations ./migrations
 
 # Explicitly disable Docker health checks
 HEALTHCHECK NONE
