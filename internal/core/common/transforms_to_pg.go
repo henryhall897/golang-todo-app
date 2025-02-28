@@ -11,7 +11,8 @@ import (
 // ToPgUUID converts a Go uuid.UUID to a pgtype.UUID with validation.
 func ToPgUUID(id uuid.UUID) (pgtype.UUID, error) {
 	if id == uuid.Nil {
-		return pgtype.UUID{}, fmt.Errorf("invalid UUID: cannot be nil")
+		// Handler is supposed for this. This is a safety net if a layer is skipped. this should never happen.
+		return pgtype.UUID{}, ErrInvalidUUID
 	}
 	return pgtype.UUID{
 		Bytes: id,

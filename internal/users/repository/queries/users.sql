@@ -26,15 +26,13 @@ SET
 WHERE id = $1
 RETURNING *;
 
-
-
 -- Delete a user by ID
 -- name: DeleteUser :execrows
 DELETE FROM users
 WHERE id = $1;
 
--- List all users with pagination
--- name: ListUsers :many
+-- Get all users with pagination
+-- name: GetUsers :many
 SELECT *
 FROM users
 ORDER BY created_at DESC

@@ -12,32 +12,31 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type repository struct {
-	pool *pgxpool.Pool
+	pool  *pgxpool.Pool
+	query *userstore.Queries
 }
 
 func New(pool *pgxpool.Pool) *repository {
 	return &repository{
-		pool: pool,
+		pool:  pool,
+		query: userstore.New(pool),
 	}
 }
 
 func (r *repository) CreateUser(ctx context.Context, newUser domain.CreateUserParams) (domain.User, error) {
-	query := userstore.New(r.pool)
-
 	// Convert the CreateUserParams to gen.CreateUserParams
 	pgNewUser := createUserParamsToPG(newUser)
 
 	// Execute the query to create a new user
-	user, err := query.CreateUser(ctx, pgNewUser)
+	user, err := r.query.CreateUser(ctx, pgNewUser)
 	if err != nil {
 		// Check if the error is a unique constraint violation
 		if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.Code == "23505" { // 23505 is PostgreSQL's unique violation error code
-			return domain.User{}, fmt.Errorf("%w", common.ErrEmailAlreadyExists)
+			return domain.User{}, fmt.Errorf("%w", ErrEmailAlreadyExists)
 		}
 		return domain.User{}, fmt.Errorf("failed to create user: %w", err)
 	}
@@ -51,19 +50,23 @@ func (r *repository) CreateUser(ctx context.Context, newUser domain.CreateUserPa
 }
 
 func (r *repository) GetUserByID(ctx context.Context, id uuid.UUID) (domain.User, error) {
-	query := userstore.New(r.pool)
+	//convert uuid.UUID to pgtype.UUID
+	pgUUID, err := common.ToPgUUID(id)
+	if err != nil {
+		// Handler should have validated the UUID, so this should not happen. safe guard against edge case
+		return domain.User{}, err
+	}
 
-	user, err := query.GetUserByID(ctx, pgtype.UUID{
-		Bytes: id,
-		Valid: true,
-	})
+	// Execute the query to get the user by ID
+	user, err := r.query.GetUserByID(ctx, pgUUID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.User{}, common.ErrNotFound
-	} else if err != nil {
 		return domain.User{}, fmt.Errorf("user %s: %w", id, common.ErrNotFound)
+	} else if err != nil {
+		return domain.User{}, fmt.Errorf("user %s: %w", id, common.ErrInternalServerError)
 
 	}
 
+	// Convert the raw database results into the domain.User type
 	result, err := pgToUsers(user)
 	if err != nil {
 		return domain.User{}, err
@@ -73,15 +76,15 @@ func (r *repository) GetUserByID(ctx context.Context, id uuid.UUID) (domain.User
 }
 
 func (r *repository) GetUserByEmail(ctx context.Context, email string) (domain.User, error) {
-	query := userstore.New(r.pool)
-
-	user, err := query.GetUserByEmail(ctx, email)
+	// Execute the query to get the user by email
+	user, err := r.query.GetUserByEmail(ctx, email)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.User{}, common.ErrNotFound
+		return domain.User{}, fmt.Errorf("email %s: %w", email, common.ErrNotFound)
 	} else if err != nil {
-		return domain.User{}, fmt.Errorf("failed to get user by email %w", err)
+		return domain.User{}, fmt.Errorf("email %s: %w", email, common.ErrInternalServerError)
 	}
 
+	// Convert the raw database results into the domain.User type
 	result, err := pgToUsers(user)
 	if err != nil {
 		return domain.User{}, err
@@ -90,18 +93,13 @@ func (r *repository) GetUserByEmail(ctx context.Context, email string) (domain.U
 	return result, nil
 }
 
-func (r *repository) ListUsers(ctx context.Context, listParams domain.ListUsersParams) ([]domain.User, error) {
-	query := userstore.New(r.pool)
-	// Convert the ListUsersParams to gen.ListUsersParams
-	pgParams := listParamsToPG(listParams)
-
+func (r *repository) GetUsers(ctx context.Context, getUserParams domain.GetUsersParams) ([]domain.User, error) {
 	// Execute the query to get users
-	users, err := query.ListUsers(ctx, pgParams)
+	users, err := r.query.GetUsers(ctx, getUsersParamsToPG(getUserParams))
 	if errors.Is(err, pgx.ErrNoRows) {
-		// Return an empty array if no rows are found
-		return []domain.User{}, nil
+		return []domain.User{}, fmt.Errorf("no users found: %w", common.ErrNotFound)
 	} else if err != nil {
-		return []domain.User{}, fmt.Errorf("failed to list users: %w", err)
+		return []domain.User{}, fmt.Errorf("failed to list users: %w", common.ErrInternalServerError)
 	}
 
 	// Convert the raw database results into the domain.User type

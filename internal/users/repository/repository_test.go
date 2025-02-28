@@ -32,7 +32,7 @@ func (u *UserTestSuite) SetupSuite() {
 	u.ctx = context.Background()
 
 	var err error
-	u.pgt, err = dbtest.NewPostgresTest(u.ctx, zap.L(), "../../../migrations", &dbpool.Config{
+	u.pgt, err = dbtest.NewPostgresTest(u.ctx, zap.L(), "../../../database/migrations", &dbpool.Config{
 		Logging:      false,
 		Host:         "localhost",
 		Port:         "5432",
@@ -121,7 +121,7 @@ func (u *UserTestSuite) TestCreateUser() {
 
 		// Assert - Expect our defined unique constraint error
 		u.Require().Error(err)
-		u.ErrorIs(err, common.ErrEmailAlreadyExists)
+		u.ErrorIs(err, ErrEmailAlreadyExists)
 	})
 }
 
@@ -194,8 +194,8 @@ func (u *UserTestSuite) TestGetUserByEmail() {
 	})
 }
 
-// TestListUsers checks listing all users
-func (u *UserTestSuite) TestListUsers() {
+// TestGetUsers checks listing all users
+func (u *UserTestSuite) TestGetUsers() {
 	ctx := u.ctx
 	t := u.T() // Get the testing instance
 	users, err := u.CreateSampleUsers(ctx, 3)
@@ -207,11 +207,11 @@ func (u *UserTestSuite) TestListUsers() {
 		u.Require().Len(users, 3, "Expected 3 users to be created")
 
 		// Act - List users with pagination
-		params := domain.ListUsersParams{
+		params := domain.GetUsersParams{
 			Limit:  3,
 			Offset: 0,
 		}
-		results, err := u.repository.ListUsers(ctx, params)
+		results, err := u.repository.GetUsers(ctx, params)
 
 		// Assert
 		u.Require().NoError(err)
@@ -231,11 +231,11 @@ func (u *UserTestSuite) TestListUsers() {
 		u.Require().Len(users, 3, "Expected 3 users to be created")
 
 		// Act - Retrieve only 2 users, skipping the latest user
-		params := domain.ListUsersParams{
+		params := domain.GetUsersParams{
 			Limit:  2,
 			Offset: 1, // Skip the most recently created user
 		}
-		results, err := u.repository.ListUsers(ctx, params)
+		results, err := u.repository.GetUsers(ctx, params)
 
 		// Assert
 		u.Require().NoError(err)
@@ -255,22 +255,22 @@ func (u *UserTestSuite) TestListUsers() {
 		u.Require().NoError(err)
 
 		// Act with OFFSET exceeding total rows
-		params := domain.ListUsersParams{
+		params := domain.GetUsersParams{
 			Limit:  2,
 			Offset: 10, // Skip more rows than exist
 		}
-		results, err := u.repository.ListUsers(ctx, params)
+		results, err := u.repository.GetUsers(ctx, params)
 
 		// Assert
 		u.Require().NoError(err)
 		u.Require().Empty(results, "Expected no results when offset exceeds row count")
 
 		// Act with LIMIT = 0
-		params = domain.ListUsersParams{
+		params = domain.GetUsersParams{
 			Limit:  0, // No rows should be returned
 			Offset: 0,
 		}
-		results, err = u.repository.ListUsers(ctx, params)
+		results, err = u.repository.GetUsers(ctx, params)
 
 		// Assert
 		u.Require().NoError(err)
