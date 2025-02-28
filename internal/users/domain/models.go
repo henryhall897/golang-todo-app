@@ -14,8 +14,8 @@ type User struct {
 	UpdatedAt *time.Time `json:"updated_at"`
 }
 
-// ListUsersParams defines the parameters for listing users.
-type ListUsersParams struct {
+// GetUsersParams defines the parameters for listing users.
+type GetUsersParams struct {
 	Limit  int
 	Offset int
 }

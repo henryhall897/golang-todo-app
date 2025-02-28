@@ -32,8 +32,8 @@ var _ domain.Repository = &RepositoryMock{}
 //			GetUserByIDFunc: func(ctx context.Context, id uuid.UUID) (domain.User, error) {
 //				panic("mock out the GetUserByID method")
 //			},
-//			ListUsersFunc: func(ctx context.Context, params domain.ListUsersParams) ([]domain.User, error) {
-//				panic("mock out the ListUsers method")
+//			GetUsersFunc: func(ctx context.Context, params domain.GetUsersParams) ([]domain.User, error) {
+//				panic("mock out the GetUsers method")
 //			},
 //			UpdateUserFunc: func(ctx context.Context, updateUserparams domain.UpdateUserParams) (domain.User, error) {
 //				panic("mock out the UpdateUser method")
@@ -57,8 +57,8 @@ type RepositoryMock struct {
 	// GetUserByIDFunc mocks the GetUserByID method.
 	GetUserByIDFunc func(ctx context.Context, id uuid.UUID) (domain.User, error)
 
-	// ListUsersFunc mocks the ListUsers method.
-	ListUsersFunc func(ctx context.Context, params domain.ListUsersParams) ([]domain.User, error)
+	// GetUsersFunc mocks the GetUsers method.
+	GetUsersFunc func(ctx context.Context, params domain.GetUsersParams) ([]domain.User, error)
 
 	// UpdateUserFunc mocks the UpdateUser method.
 	UpdateUserFunc func(ctx context.Context, updateUserparams domain.UpdateUserParams) (domain.User, error)
@@ -93,12 +93,12 @@ type RepositoryMock struct {
 			// ID is the id argument value.
 			ID uuid.UUID
 		}
-		// ListUsers holds details about calls to the ListUsers method.
-		ListUsers []struct {
+		// GetUsers holds details about calls to the GetUsers method.
+		GetUsers []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Params is the params argument value.
-			Params domain.ListUsersParams
+			Params domain.GetUsersParams
 		}
 		// UpdateUser holds details about calls to the UpdateUser method.
 		UpdateUser []struct {
@@ -112,7 +112,7 @@ type RepositoryMock struct {
 	lockDeleteUser     sync.RWMutex
 	lockGetUserByEmail sync.RWMutex
 	lockGetUserByID    sync.RWMutex
-	lockListUsers      sync.RWMutex
+	lockGetUsers       sync.RWMutex
 	lockUpdateUser     sync.RWMutex
 }
 
@@ -260,39 +260,39 @@ func (mock *RepositoryMock) GetUserByIDCalls() []struct {
 	return calls
 }
 
-// ListUsers calls ListUsersFunc.
-func (mock *RepositoryMock) ListUsers(ctx context.Context, params domain.ListUsersParams) ([]domain.User, error) {
-	if mock.ListUsersFunc == nil {
-		panic("RepositoryMock.ListUsersFunc: method is nil but Repository.ListUsers was just called")
+// GetUsers calls GetUsersFunc.
+func (mock *RepositoryMock) GetUsers(ctx context.Context, params domain.GetUsersParams) ([]domain.User, error) {
+	if mock.GetUsersFunc == nil {
+		panic("RepositoryMock.GetUsersFunc: method is nil but Repository.GetUsers was just called")
 	}
 	callInfo := struct {
 		Ctx    context.Context
-		Params domain.ListUsersParams
+		Params domain.GetUsersParams
 	}{
 		Ctx:    ctx,
 		Params: params,
 	}
-	mock.lockListUsers.Lock()
-	mock.calls.ListUsers = append(mock.calls.ListUsers, callInfo)
-	mock.lockListUsers.Unlock()
-	return mock.ListUsersFunc(ctx, params)
+	mock.lockGetUsers.Lock()
+	mock.calls.GetUsers = append(mock.calls.GetUsers, callInfo)
+	mock.lockGetUsers.Unlock()
+	return mock.GetUsersFunc(ctx, params)
 }
 
-// ListUsersCalls gets all the calls that were made to ListUsers.
+// GetUsersCalls gets all the calls that were made to GetUsers.
 // Check the length with:
 //
-//	len(mockedRepository.ListUsersCalls())
-func (mock *RepositoryMock) ListUsersCalls() []struct {
+//	len(mockedRepository.GetUsersCalls())
+func (mock *RepositoryMock) GetUsersCalls() []struct {
 	Ctx    context.Context
-	Params domain.ListUsersParams
+	Params domain.GetUsersParams
 } {
 	var calls []struct {
 		Ctx    context.Context
-		Params domain.ListUsersParams
+		Params domain.GetUsersParams
 	}
-	mock.lockListUsers.RLock()
-	calls = mock.calls.ListUsers
-	mock.lockListUsers.RUnlock()
+	mock.lockGetUsers.RLock()
+	calls = mock.calls.GetUsers
+	mock.lockGetUsers.RUnlock()
 	return calls
 }
 

@@ -10,11 +10,11 @@ import (
 
 func pgToUsers(users userstore.User) (domain.User, error) {
 	if !users.ID.Valid {
-		return domain.User{}, fmt.Errorf("invalid user id")
+		return domain.User{}, ErrInvalidDbUserID
 	}
 	userID, err := common.FromPgUUID(users.ID)
 	if err != nil {
-		return domain.User{}, fmt.Errorf("failed to parse uuid")
+		return domain.User{}, ErrFailedToParseUUID
 	}
 	userCreatedAt := common.FromPgTimestamp(users.CreatedAt)
 	userUpdatedAt := common.FromPgTimestamp(users.UpdatedAt)
@@ -29,8 +29,8 @@ func pgToUsers(users userstore.User) (domain.User, error) {
 }
 
 // toPgListParams converts ListUsersParams to gen.ListUsersParams
-func listParamsToPG(params domain.ListUsersParams) userstore.ListUsersParams {
-	return userstore.ListUsersParams{
+func getUsersParamsToPG(params domain.GetUsersParams) userstore.GetUsersParams {
+	return userstore.GetUsersParams{
 		Limit:  int32(params.Limit),
 		Offset: int32(params.Offset),
 	}

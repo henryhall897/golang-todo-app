@@ -9,9 +9,9 @@ import (
 
 // ErrNotFound indicates that a record queried for in the database was not found.
 var ErrNotFound = errors.New("not found")
-var ErrEmailAlreadyExists = errors.New("email already exists")
 var ErrValidation = errors.New("validation failed")
 var ErrInternalServerError = errors.New("internal server error")
+var ErrInvalidUUID = errors.New("invalid UUID")
 
 // ErrorResponse represents a standardized JSON error response.
 type ErrorResponse struct {

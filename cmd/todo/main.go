@@ -17,6 +17,7 @@ import (
 	"github.com/henryhall897/golang-todo-app/internal/server"
 	"github.com/henryhall897/golang-todo-app/internal/users/handler"
 	"github.com/henryhall897/golang-todo-app/internal/users/repository"
+	userRoutes "github.com/henryhall897/golang-todo-app/internal/users/routes"
 	"github.com/henryhall897/golang-todo-app/internal/users/services"
 	"go.uber.org/zap"
 )
@@ -105,7 +106,7 @@ func run(ctx context.Context, logger *zap.SugaredLogger, cfg *config.AppConfig) 
 
 	// Create router
 	rt := router.NewRouter([]router.Routes{
-		handler.NewUserRoutes(handler.NewUserHandler(services.NewService(userStore, logger), logger)),
+		userRoutes.NewUserRoutes(handler.NewUserHandler(services.NewService(userStore, logger), logger)),
 		// Add more route modules here (e.g., tasks, lists)
 	})
 
