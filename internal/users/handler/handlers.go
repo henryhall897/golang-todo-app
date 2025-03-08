@@ -7,6 +7,7 @@ import (
 
 	"github.com/henryhall897/golang-todo-app/internal/core/common"
 	"github.com/henryhall897/golang-todo-app/internal/users/domain"
+	"github.com/henryhall897/golang-todo-app/internal/users/services"
 	"go.uber.org/zap"
 
 	"github.com/google/uuid"
@@ -27,27 +28,29 @@ func NewUserHandler(service domain.Service, logger *zap.SugaredLogger) *Handler 
 
 // CreateUserHandler handles creating a new user
 func (h *Handler) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
-	var req domain.CreateUserParams
-
-	// Decode request body
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		common.WriteJSONError(w, http.StatusBadRequest, common.MsgInvalidRequestBody)
+	// Extract and decode request body
+	var params domain.CreateUserParams
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		h.logger.Warnw("CreateUser failed: invalid request body", "error", err)
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
 
-	// Validate input
-	if req.Name == "" || req.Email == "" {
-		common.WriteJSONError(w, http.StatusBadRequest, common.MsgMissingFields)
+	// Validate input fields
+	if params.Name == "" || params.Email == "" {
+		h.logger.Warnw("CreateUser failed: missing required fields", "name", params.Name, "email", params.Email)
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
 
 	// Call service layer
-	user, err := h.service.CreateUser(r.Context(), req)
+	user, err := h.service.CreateUser(r.Context(), params)
 	if err != nil {
-		if errors.Is(err, common.ErrEmailAlreadyExists) {
-			common.WriteJSONError(w, http.StatusConflict, common.MsgEmailAlreadyExists)
+		if errors.Is(err, services.ErrEmailAlreadyExists) {
+			http.Error(w, http.StatusText(http.StatusConflict), http.StatusConflict)
 		} else {
-			common.WriteJSONError(w, http.StatusInternalServerError, common.MsgInternalServerError)
+			h.logger.Errorw("CreateUser failed: internal server error", "error", err)
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		}
 		return
 	}
@@ -56,109 +59,124 @@ func (h *Handler) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(user); err != nil {
-		common.WriteJSONError(w, http.StatusInternalServerError, common.MsgFailedEncoding)
+		h.logger.Errorw("CreateUser failed: failed to encode response", "error", err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }
 
+// GetUserByIDHandler handles retrieving a user by ID
 func (h *Handler) GetUserByIDHandler(w http.ResponseWriter, r *http.Request) {
-	// Extract userID from context
-	userIDStr, ok := r.Context().Value(userIDKey).(string)
+	// Extract validated user ID from context
+	userID, ok := r.Context().Value(userIDKey).(uuid.UUID)
 	if !ok {
-		http.Error(w, "User ID not found", http.StatusBadRequest)
+		h.logger.Errorw("GetUserByID failed: user ID missing in request context")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
-	// Convert userID to UUID and fetch the user
-	userID, err := uuid.Parse(userIDStr)
-	if err != nil {
-		http.Error(w, "Invalid user ID", http.StatusBadRequest)
-		return
-	}
-
+	// Call the service layer
 	user, err := h.service.GetUserByID(r.Context(), userID)
 	if err != nil {
-		h.logger.Errorw("Failed to get user by ID", "error", err)
-		http.Error(w, "User not found", http.StatusNotFound)
+		if errors.Is(err, common.ErrNotFound) {
+			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+			return
+		}
+		h.logger.Errorw("GetUserByID failed: internal server error", "user_id", userID, "error", err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
 	// Return the user as JSON
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(user); err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-		return
+		h.logger.Errorw("GetUserByID failed: failed to encode response", "user_id", userID, "error", err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }
 
 // GetUserByEmailHandler handles retrieving a user by email
 func (h *Handler) GetUserByEmailHandler(w http.ResponseWriter, r *http.Request) {
-	// Extract email from query parameters
-	email := r.URL.Query().Get("email")
-	if email == "" {
-		http.Error(w, "Email parameter is required", http.StatusBadRequest)
+	// Extract validated query parameters from context
+	queryParams, ok := r.Context().Value(queryParamsKey).(domain.GetQueryParams)
+	if !ok {
+		h.logger.Errorw("GetUserByEmail failed: missing query parameters in context")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
-	// Call store to get the user by email
-	user, err := h.service.GetUserByEmail(r.Context(), email)
-	if errors.Is(err, common.ErrNotFound) {
-		h.logger.Errorw("User not found", "email", email)
-		http.Error(w, "User not found", http.StatusNotFound)
-		return
-	} else if err != nil {
-		h.logger.Errorw("Failed to get user by email", "error", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	// Call the service layer
+	user, err := h.service.GetUserByEmail(r.Context(), queryParams.Email)
+	if err != nil {
+		if errors.Is(err, common.ErrNotFound) {
+			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+			return
+		}
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
 	// Return the user as JSON
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(user); err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-		return
+		h.logger.Errorw("GetUserByEmail failed: failed to encode response", "email", queryParams.Email, "error", err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }
 
-// ListUsersHandler handles retrieving all users
-func (h *Handler) ListUsersHandler(w http.ResponseWriter, r *http.Request) {
-	// Call store to list users using the request's context
-	userList, err := h.service.ListUsers(r.Context(), domain.ListUsersParams{})
+// GetUsersHandler handles retrieving a list of users or a user by email
+func (h *Handler) GetUsersHandler(w http.ResponseWriter, r *http.Request) {
+	// Extract validated query parameters from context
+	queryParams, ok := r.Context().Value(queryParamsKey).(domain.GetQueryParams)
+	if !ok {
+		h.logger.Errorw("GetUsersHandler failed: missing query parameters in context")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	// If email is provided, delegate request to GetUserByEmailHandler
+	if queryParams.QueryType == domain.QueryTypeEmail {
+		h.GetUserByEmailHandler(w, r)
+		return
+	}
+
+	// Construct user query params for listing users
+	getUsersParams := domain.GetUsersParams{
+		Limit:  queryParams.Limit,
+		Offset: queryParams.Offset,
+	}
+
+	// Call the service layer
+	users, err := h.service.GetUsers(r.Context(), getUsersParams)
 	if err != nil {
-		h.logger.Errorw("Failed to list users", "error", err, "path", r.URL.Path, "method", r.Method)
-		http.Error(w, "Failed to list users", http.StatusInternalServerError)
+		if errors.Is(err, common.ErrNotFound) {
+			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+			return
+		}
+		h.logger.Errorw("GetUsersHandler failed: internal server error", "params", getUsersParams, "error", err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
-	// Handle empty response case
-	if len(userList) == 0 {
-		userList = []domain.User{}
+	// Ensure an empty array instead of nil
+	if len(users) == 0 {
+		users = []domain.User{}
 	}
 
-	// Set response headers and write status code
+	// Return JSON response
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
-	// Encode and send the response
-	if err := json.NewEncoder(w).Encode(userList); err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-		return
+	if err := json.NewEncoder(w).Encode(users); err != nil {
+		h.logger.Errorw("GetUsersHandler failed: failed to encode response", "params", getUsersParams, "error", err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }
 
 // UpdateUserHandler handles updating a user's information
 func (h *Handler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
-	// Extract user ID from context
-	userIDStr, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userIDStr == "" {
-		http.Error(w, "User ID not found", http.StatusBadRequest)
-		return
-	}
-
-	// Parse the user ID
-	userID, err := uuid.Parse(userIDStr)
-	if err != nil {
-		http.Error(w, "Invalid user ID format", http.StatusBadRequest)
+	// Extract validated user ID from context
+	userID, ok := r.Context().Value(userIDKey).(uuid.UUID)
+	if !ok || userID == uuid.Nil {
+		h.logger.Errorw("UpdateUserHandler failed: missing or invalid user ID in context")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
@@ -168,14 +186,15 @@ func (h *Handler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 		Email *string `json:"email"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		h.logger.Errorw("Invalid request body", "error", err)
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		h.logger.Errorw("UpdateUserHandler failed: invalid request body", "error", err)
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
 
 	// Ensure at least one field is provided
-	if payload.Name == nil || payload.Email == nil {
-		http.Error(w, "Bad request", http.StatusBadRequest)
+	if payload.Name == nil && payload.Email == nil {
+		h.logger.Warnw("UpdateUserHandler failed: no fields provided for update")
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
 
@@ -186,15 +205,15 @@ func (h *Handler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 		Email: *payload.Email,
 	}
 
-	// Call the store to update the user
+	// Call the service layer
 	updatedUser, err := h.service.UpdateUser(r.Context(), updateUserParams)
-	if errors.Is(err, common.ErrNotFound) {
-		h.logger.Errorw("User not found", "userID", userID)
-		http.Error(w, "User not found", http.StatusNotFound)
-		return
-	} else if err != nil {
-		h.logger.Errorw("Failed to update user", "error", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	if err != nil {
+		if errors.Is(err, common.ErrNotFound) {
+			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+			return
+		}
+		h.logger.Errorw("UpdateUserHandler failed: internal server error", "user_id", userID, "error", err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
@@ -202,39 +221,32 @@ func (h *Handler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(updatedUser); err != nil {
-		h.logger.Errorw("Failed to encode response", "error", err)
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		h.logger.Errorw("UpdateUserHandler failed: failed to encode response", "user_id", userID, "error", err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }
 
 // DeleteUserHandler handles deleting a user by ID
 func (h *Handler) DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
-	// Extract user ID from the context
-	userIDStr, ok := r.Context().Value(userIDKey).(string)
-	if !ok || userIDStr == "" {
-		http.Error(w, "User ID not found", http.StatusBadRequest)
+	// Extract validated user ID from context
+	id, ok := r.Context().Value(userIDKey).(uuid.UUID)
+	if !ok || id == uuid.Nil {
+		h.logger.Errorw("DeleteUserHandler failed: missing or invalid user ID in context")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
-	// Parse the user ID
-	id, err := uuid.Parse(userIDStr)
+	// Call service layer to delete the user
+	err := h.service.DeleteUser(r.Context(), id)
 	if err != nil {
-		http.Error(w, "Invalid user ID format", http.StatusBadRequest)
+		if errors.Is(err, common.ErrNotFound) {
+			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+			return
+		}
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
-	// Call store to delete the user
-	err = h.service.DeleteUser(r.Context(), id)
-	if errors.Is(err, common.ErrNotFound) {
-		h.logger.Errorw("User not found", "userID", id)
-		http.Error(w, "User not found", http.StatusNotFound)
-		return
-	} else if err != nil {
-		h.logger.Errorw("Failed to delete user", "error", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	// Return a success response (204 No Content)
+	// Return success response (204 No Content)
 	w.WriteHeader(http.StatusNoContent)
 }
