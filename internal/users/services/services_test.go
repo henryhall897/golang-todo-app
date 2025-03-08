@@ -342,3 +342,139 @@ func TestGetUserByEmail(t *testing.T) {
 		assert.Equal(t, domain.User{}, user)
 	})
 }
+
+func TestUpdateUser(t *testing.T) {
+	suite := SetupSuite() // Load shared setup
+
+	// Define common test data
+	testUsers := testutils.GenerateMockUsers(1) // Use mock users generator
+	testUser := testUsers[0]
+	testUpdateParams := domain.UpdateUserParams{
+		ID:    testUser.ID,
+		Name:  "Updated Name",
+		Email: "updated@example.com",
+	}
+
+	t.Run("success - user updated", func(t *testing.T) {
+		// Mock successful user update
+		suite.mockRepo.UpdateUserFunc = func(ctx context.Context, params domain.UpdateUserParams) (domain.User, error) {
+			return testUser, nil
+		}
+
+		// Call the service method
+		updatedUser, err := suite.userService.UpdateUser(suite.ctx, testUpdateParams)
+
+		// Assertions
+		require.NoError(t, err)
+		assert.Equal(t, testUser, updatedUser)
+	})
+
+	t.Run("failure - user not found", func(t *testing.T) {
+		// Mock repository returning ErrNotFound
+		suite.mockRepo.UpdateUserFunc = func(ctx context.Context, params domain.UpdateUserParams) (domain.User, error) {
+			return domain.User{}, common.ErrNotFound
+		}
+
+		// Call the service method
+		updatedUser, err := suite.userService.UpdateUser(suite.ctx, testUpdateParams)
+
+		// Assertions
+		require.Error(t, err)
+		assert.True(t, errors.Is(err, common.ErrNotFound))
+		assert.Equal(t, domain.User{}, updatedUser) // Should return an empty user
+	})
+
+	t.Run("failure - invalid user data in DB", func(t *testing.T) {
+		// Mock repository returning ErrInvalidDbUserID
+		suite.mockRepo.UpdateUserFunc = func(ctx context.Context, params domain.UpdateUserParams) (domain.User, error) {
+			return domain.User{}, repository.ErrInvalidDbUserID
+		}
+
+		// Call the service method
+		updatedUser, err := suite.userService.UpdateUser(suite.ctx, testUpdateParams)
+
+		// Assertions
+		require.Error(t, err)
+		assert.True(t, errors.Is(err, common.ErrInternalServerError)) // Should be masked as internal error
+		assert.Equal(t, domain.User{}, updatedUser)
+	})
+
+	t.Run("failure - failed to parse UUID", func(t *testing.T) {
+		// Mock repository returning ErrFailedToParseUUID
+		suite.mockRepo.UpdateUserFunc = func(ctx context.Context, params domain.UpdateUserParams) (domain.User, error) {
+			return domain.User{}, repository.ErrFailedToParseUUID
+		}
+
+		// Call the service method
+		updatedUser, err := suite.userService.UpdateUser(suite.ctx, testUpdateParams)
+
+		// Assertions
+		require.Error(t, err)
+		assert.True(t, errors.Is(err, common.ErrInternalServerError)) // Should be masked as internal error
+		assert.Equal(t, domain.User{}, updatedUser)
+	})
+
+	t.Run("failure - unexpected error", func(t *testing.T) {
+		// Mock repository returning an unknown error
+		suite.mockRepo.UpdateUserFunc = func(ctx context.Context, params domain.UpdateUserParams) (domain.User, error) {
+			return domain.User{}, errors.New("database timeout")
+		}
+
+		// Call the service method
+		updatedUser, err := suite.userService.UpdateUser(suite.ctx, testUpdateParams)
+
+		// Assertions
+		require.Error(t, err)
+		assert.True(t, errors.Is(err, common.ErrInternalServerError)) // Should be masked as internal error
+		assert.Equal(t, domain.User{}, updatedUser)
+	})
+}
+
+func TestDeleteUser(t *testing.T) {
+	suite := SetupSuite() // Load shared setup
+
+	// Define common test data
+	testUser := testutils.GenerateMockUsers(1)[0] // Use mock user generator
+	testUserID := testUser.ID
+
+	t.Run("success - user deleted", func(t *testing.T) {
+		// Mock successful user deletion
+		suite.mockRepo.DeleteUserFunc = func(ctx context.Context, id uuid.UUID) error {
+			return nil
+		}
+
+		// Call the service method
+		err := suite.userService.DeleteUser(suite.ctx, testUserID)
+
+		// Assertions
+		require.NoError(t, err)
+	})
+
+	t.Run("failure - user not found", func(t *testing.T) {
+		// Mock repository returning ErrNotFound
+		suite.mockRepo.DeleteUserFunc = func(ctx context.Context, id uuid.UUID) error {
+			return common.ErrNotFound
+		}
+
+		// Call the service method
+		err := suite.userService.DeleteUser(suite.ctx, testUserID)
+
+		// Assertions
+		require.Error(t, err)
+		assert.True(t, errors.Is(err, common.ErrNotFound))
+	})
+
+	t.Run("failure - internal server error", func(t *testing.T) {
+		// Mock repository returning an unknown error
+		suite.mockRepo.DeleteUserFunc = func(ctx context.Context, id uuid.UUID) error {
+			return errors.New("database timeout")
+		}
+
+		// Call the service method
+		err := suite.userService.DeleteUser(suite.ctx, testUserID)
+
+		// Assertions
+		require.Error(t, err)
+		assert.True(t, errors.Is(err, common.ErrInternalServerError)) // Should be masked as internal error
+	})
+}

@@ -15,7 +15,7 @@ import (
 	"github.com/henryhall897/golang-todo-app/internal/core/logging"
 	"github.com/henryhall897/golang-todo-app/internal/router"
 	"github.com/henryhall897/golang-todo-app/internal/server"
-	"github.com/henryhall897/golang-todo-app/internal/users/handler"
+	userHandlers "github.com/henryhall897/golang-todo-app/internal/users/handler"
 	"github.com/henryhall897/golang-todo-app/internal/users/repository"
 	userRoutes "github.com/henryhall897/golang-todo-app/internal/users/routes"
 	"github.com/henryhall897/golang-todo-app/internal/users/services"
@@ -101,14 +101,24 @@ func run(ctx context.Context, logger *zap.SugaredLogger, cfg *config.AppConfig) 
 	}
 	logger.Info("Database migrations completed successfully")
 
-	// Initialize user store
+	// Initialize stores
 	userStore := repository.New(pool)
 
-	// Create router
-	rt := router.NewRouter([]router.Routes{
-		userRoutes.NewUserRoutes(handler.NewUserHandler(services.NewService(userStore, logger), logger)),
-		// Add more route modules here (e.g., tasks, lists)
-	})
+	// Initialize services
+	userService := services.NewService(userStore, logger)
+
+	// Initialize HTTP handlers
+	userHandler := userHandlers.NewUserHandler(userService, logger)
+
+	// Register route functions
+	routeFuncs := []router.RouteRegisterFunc{
+		userRoutes.RegisterRoutes,
+	}
+
+	// Initialize the router
+	rt := router.NewRouter(routeFuncs, []userHandlers.Handler{*userHandler})
+
+	// Add more route modules here (e.g., tasks, lists)
 
 	// Start the HTTP server
 	srv := server.NewHTTPServer(&config.ServerConfig{
@@ -116,5 +126,5 @@ func run(ctx context.Context, logger *zap.SugaredLogger, cfg *config.AppConfig) 
 		Port:        cfg.Server.Port,
 		Logger:      logger,
 	})
-	return srv.Serve(ctx, rt.Mux)
+	return srv.Serve(ctx, rt.LimitedHandler)
 }

@@ -50,12 +50,8 @@ func (r *repository) CreateUser(ctx context.Context, newUser domain.CreateUserPa
 }
 
 func (r *repository) GetUserByID(ctx context.Context, id uuid.UUID) (domain.User, error) {
-	//convert uuid.UUID to pgtype.UUID
-	pgUUID, err := common.ToPgUUID(id)
-	if err != nil {
-		// Handler should have validated the UUID, so this should not happen. safe guard against edge case
-		return domain.User{}, err
-	}
+	//convert uuid.UUID to pgtype.UUID. not checking for error because handler verified the UUID
+	pgUUID, _ := common.ToPgUUID(id)
 
 	// Execute the query to get the user by ID
 	user, err := r.query.GetUserByID(ctx, pgUUID)
@@ -116,16 +112,11 @@ func (r *repository) GetUsers(ctx context.Context, getUserParams domain.GetUsers
 }
 
 func (r *repository) UpdateUser(ctx context.Context, updateParams domain.UpdateUserParams) (domain.User, error) {
-	query := userstore.New(r.pool)
-
-	// Transform input to the required database structure
-	arg, err := updateUserParamsToPG(updateParams)
-	if err != nil {
-		return domain.User{}, fmt.Errorf("failed to transform update parameters: %w", err)
-	}
+	// Transform input to the required database structure Handler checks for valid UUID. can ignore error here
+	arg, _ := updateUserParamsToPG(updateParams)
 
 	// Execute the update query
-	dbUpdatedUser, err := query.UpdateUser(ctx, arg)
+	dbUpdatedUser, err := r.query.UpdateUser(ctx, arg)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.User{}, common.ErrNotFound
 	} else if err != nil {
@@ -141,17 +132,13 @@ func (r *repository) UpdateUser(ctx context.Context, updateParams domain.UpdateU
 	return updatedUser, nil
 }
 
-func (s *repository) DeleteUser(ctx context.Context, id uuid.UUID) error {
-	query := userstore.New(s.pool)
+func (r *repository) DeleteUser(ctx context.Context, id uuid.UUID) error {
 
-	// Convert uuid.UUID to pgtype.UUID
-	pgId, err := common.ToPgUUID(id)
-	if err != nil {
-		return fmt.Errorf("failed to convert UUID to pgtype.UUID: %w", err)
-	}
+	// Convert uuid.UUID to pgtype.UUID - Handler checks for valid UUID. can ignore error here
+	pgId, _ := common.ToPgUUID(id)
 
 	// Execute the delete query
-	rowsAffected, err := query.DeleteUser(ctx, pgId)
+	rowsAffected, err := r.query.DeleteUser(ctx, pgId)
 	if err != nil {
 		return fmt.Errorf("failed to execute delete query: %w", err)
 	}

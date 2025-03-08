@@ -2,13 +2,11 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/henryhall897/golang-todo-app/internal/core/common"
 	"github.com/henryhall897/golang-todo-app/internal/core/logging"
 	"github.com/henryhall897/golang-todo-app/internal/users/domain"
 )
@@ -16,7 +14,6 @@ import (
 type contextKey string
 
 const userIDKey = contextKey("userID")
-const validatedUserKey = contextKey("validatedUser")
 const queryParamsKey = contextKey("queryParams")
 
 // methodHandler filters requests by HTTP method
@@ -30,62 +27,34 @@ func MethodHandler(method string, handlerFunc http.HandlerFunc) http.Handler {
 	})
 }
 
-// VerifyCreateUserBody validates the request body for creating a user
-func VerifyCreateUserBody(next http.HandlerFunc) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger := logging.GetLogger(r.Context()) // Retrieve logger from context
-
-		var req domain.CreateUserParams
-
-		// Decode request body
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			logger.Warnw("CreateUser failed: invalid request body", "error", err)
-			common.WriteJSONError(w, http.StatusBadRequest, common.MsgInvalidRequestBody)
-			return
-		}
-
-		// Validate input fields
-		if req.Name == "" || req.Email == "" {
-			logger.Warnw("CreateUser failed: missing required fields", "name", req.Name, "email", req.Email)
-			common.WriteJSONError(w, http.StatusBadRequest, common.MsgInvalidInput)
-			return
-		}
-
-		// Store validated request in context and pass to handler
-		ctx := context.WithValue(r.Context(), validatedUserKey, req)
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
-}
-
 // VerifyUserID extracts and validates a UUID from the request context
 func VerifyUserID(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Retrieve logger from context
 		logger := logging.GetLogger(r.Context())
 
-		// Extract user ID from the URL path using std lib
+		// Extract user ID from the URL path using standard library
 		pathSegments := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
 		if len(pathSegments) < 2 {
 			logger.Warnw("VerifyUserID failed: user ID missing in path")
-			common.WriteJSONError(w, http.StatusBadRequest, common.MsgInvalidInput)
+			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 			return
 		}
 
 		userIDStr := pathSegments[1] // Second segment is the {id}
 
 		// Convert userID string to UUID
-
 		userID, err := uuid.Parse(userIDStr)
 		if err != nil {
 			logger.Warnw("VerifyUserID failed: invalid user ID format", "user_id", userIDStr, "error", err)
-			common.WriteJSONError(w, http.StatusBadRequest, common.MsgInvalidInput)
+			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 			return
 		}
 
 		// Ensure UUID is not nil
 		if userID == uuid.Nil {
 			logger.Warnw("VerifyUserID failed: nil UUID provided", "user_id", userIDStr)
-			common.WriteJSONError(w, http.StatusBadRequest, common.MsgInvalidInput)
+			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 			return
 		}
 
@@ -95,7 +64,8 @@ func VerifyUserID(next http.HandlerFunc) http.HandlerFunc {
 	})
 }
 
-func VerifyGetUsersQuery(next http.HandlerFunc) http.HandlerFunc {
+// WhichGetUsers extracts and validates query parameters for user retrieval
+func WhichGetUsers(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		logger := logging.GetLogger(r.Context())
 
@@ -104,10 +74,8 @@ func VerifyGetUsersQuery(next http.HandlerFunc) http.HandlerFunc {
 		limitStr := r.URL.Query().Get("limit")
 		offsetStr := r.URL.Query().Get("offset")
 
-		// Default query type
+		// Default query type and pagination values
 		queryType := domain.QueryTypeList
-
-		// Default pagination values from domain constants
 		limit := domain.DefaultLimit
 		offset := domain.DefaultOffset
 
@@ -115,8 +83,8 @@ func VerifyGetUsersQuery(next http.HandlerFunc) http.HandlerFunc {
 		if email != "" {
 			queryType = domain.QueryTypeEmail
 			if len(email) < 3 || len(email) > 320 {
-				logger.Warnw("VerifyGetUsersQuery failed: invalid email query parameter", "email", email)
-				common.WriteJSONError(w, http.StatusNotFound, common.MsgNotFound)
+				logger.Warnw("WhichGetUsers failed: invalid email query parameter", "email", email)
+				http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 				return
 			}
 		} else {
@@ -124,8 +92,8 @@ func VerifyGetUsersQuery(next http.HandlerFunc) http.HandlerFunc {
 			if limitStr != "" {
 				parsedLimit, err := strconv.Atoi(limitStr)
 				if err != nil || parsedLimit <= 0 {
-					logger.Warnw("VerifyGetUsersQuery failed: invalid limit parameter", "limit", limitStr)
-					common.WriteJSONError(w, http.StatusBadRequest, common.MsgInvalidInput)
+					logger.Warnw("WhichGetUsers failed: invalid limit parameter", "limit", limitStr)
+					http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 					return
 				}
 				limit = parsedLimit
@@ -135,8 +103,8 @@ func VerifyGetUsersQuery(next http.HandlerFunc) http.HandlerFunc {
 			if offsetStr != "" {
 				parsedOffset, err := strconv.Atoi(offsetStr)
 				if err != nil || parsedOffset < 0 {
-					logger.Warnw("VerifyGetUsersQuery failed: invalid offset parameter", "offset", offsetStr)
-					common.WriteJSONError(w, http.StatusBadRequest, common.MsgInvalidInput)
+					logger.Warnw("WhichGetUsers failed: invalid offset parameter", "offset", offsetStr)
+					http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 					return
 				}
 				offset = parsedOffset
@@ -144,7 +112,7 @@ func VerifyGetUsersQuery(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		// Store query parameters in context
-		queryParams := domain.QueryParams{
+		queryParams := domain.GetQueryParams{
 			QueryType: queryType,
 			Email:     email,
 			Limit:     limit,

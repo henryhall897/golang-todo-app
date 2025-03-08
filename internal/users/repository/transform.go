@@ -45,6 +45,7 @@ func createUserParamsToPG(params domain.CreateUserParams) userstore.CreateUserPa
 }
 
 func updateUserParamsToPG(input domain.UpdateUserParams) (userstore.UpdateUserParams, error) {
+	//ToPgUUID converts a UUID to a pgtype.UUID
 	pgId, err := common.ToPgUUID(input.ID)
 	if err != nil {
 		return userstore.UpdateUserParams{}, fmt.Errorf("failed to convert UUID: %w", err)
