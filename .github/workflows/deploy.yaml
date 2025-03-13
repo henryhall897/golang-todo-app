@@ -18,9 +18,12 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H 192.168.1.231 >> ~/.ssh/known_hosts
+          if ! ssh-keyscan -H 192.168.1.231 >> ~/.ssh/known_hosts; then
+          echo "Failed to add host to known_hosts"
+          exit 1
+          fi
         shell: bash
-        
+
       - name: Deploy with Helm
         run: |
           ssh deployuser@192.168.1.231 << 'EOF'
