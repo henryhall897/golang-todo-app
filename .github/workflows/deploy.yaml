@@ -18,7 +18,7 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          if ! ssh-keyscan -H cluster1 >> ~/.ssh/known_hosts; then
+          if ! ssh-keyscan -H 192.168.1.231 >> ~/.ssh/known_hosts; then
           echo "Failed to add host to known_hosts"
           exit 1
           fi
@@ -26,7 +26,7 @@ jobs:
 
       - name: Deploy with Helm
         run: |
-          ssh deployuser@cluster1 << 'EOF'
+          ssh deployuser@192.168.1.231 << 'EOF'
             cd /home/deployuser/todo 
             git pull origin master  
             helm upgrade --install golang-todo-app ./helm-chart/  
