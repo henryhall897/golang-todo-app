@@ -9,12 +9,9 @@ import (
 )
 
 func pgToUsers(users userstore.User) (domain.User, error) {
-	if !users.ID.Valid {
-		return domain.User{}, ErrInvalidDbUserID
-	}
 	userID, err := common.FromPgUUID(users.ID)
 	if err != nil {
-		return domain.User{}, ErrFailedToParseUUID
+		return domain.User{}, fmt.Errorf("failed to transform uuid %w", err)
 	}
 	userCreatedAt := common.FromPgTimestamp(users.CreatedAt)
 	userUpdatedAt := common.FromPgTimestamp(users.UpdatedAt)

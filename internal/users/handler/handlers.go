@@ -19,7 +19,7 @@ type Handler struct {
 }
 
 // NewUserHandler initializes a new UserHandler instance
-func NewUserHandler(service domain.Service, logger *zap.SugaredLogger) *Handler {
+func New(service domain.Service, logger *zap.SugaredLogger) *Handler {
 	return &Handler{
 		service: service,
 		logger:  logger,
@@ -48,10 +48,9 @@ func (h *Handler) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, services.ErrEmailAlreadyExists) {
 			http.Error(w, http.StatusText(http.StatusConflict), http.StatusConflict)
-		} else {
-			h.logger.Errorw("CreateUser failed: internal server error", "error", err)
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
 		}
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
@@ -67,15 +66,18 @@ func (h *Handler) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 // GetUserByIDHandler handles retrieving a user by ID
 func (h *Handler) GetUserByIDHandler(w http.ResponseWriter, r *http.Request) {
 	// Extract validated user ID from context
-	userID, ok := r.Context().Value(userIDKey).(uuid.UUID)
+	userID, ok := r.Context().Value(userIDKey).(string)
 	if !ok {
 		h.logger.Errorw("GetUserByID failed: user ID missing in request context")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
+	// Parse the user ID ignore err here since it was validated in middleware
+	parsedUserID, _ := uuid.Parse(userID)
+
 	// Call the service layer
-	user, err := h.service.GetUserByID(r.Context(), userID)
+	user, err := h.service.GetUserByID(r.Context(), parsedUserID)
 	if err != nil {
 		if errors.Is(err, common.ErrNotFound) {
 			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
@@ -211,8 +213,10 @@ func (h *Handler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, common.ErrNotFound) {
 			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 			return
+		} else if errors.Is(err, services.ErrEmailAlreadyExists) {
+			http.Error(w, http.StatusText(http.StatusConflict), http.StatusConflict)
+			return
 		}
-		h.logger.Errorw("UpdateUserHandler failed: internal server error", "user_id", userID, "error", err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
