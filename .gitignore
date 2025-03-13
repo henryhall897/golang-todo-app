@@ -25,3 +25,8 @@ go.work.sum
 # env file
 .env
 .vscode
+helm-chart/values.yaml
+configmap.yaml
+
+
+
