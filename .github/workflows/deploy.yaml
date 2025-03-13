@@ -18,9 +18,10 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          if ! ssh-keyscan -H 192.168.1.231 >> ~/.ssh/known_hosts; then
-          echo "Failed to add host to known_hosts"
-          exit 1
+          ssh-keyscan -H 192.168.1.231 >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/id_ed25519
           fi
         shell: bash
 
