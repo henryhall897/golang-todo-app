@@ -26,7 +26,7 @@ jobs:
       - name: Deploy with Helm
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
-            cd /home/${{ secrets.DEPLOY_USER }}/todo 
+            cd /home/${{ secrets.DEPLOY_USER }}/golang-todo-app
             git pull origin main
             helm upgrade --install golang-todo-app ./helm-chart/  
           EOF
