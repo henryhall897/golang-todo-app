@@ -13,6 +13,10 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Debug SSH Connection
+        run: |
+          ssh -v deployuser@192.168.1.231 "echo 'SSH connection successful!'"
+          
       - name: Set up SSH Key
         run: |
           mkdir -p "$HOME/.ssh"
@@ -23,10 +27,8 @@ jobs:
           eval "$(ssh-agent -s)"
           ssh-add "$HOME/.ssh/id_ed25519"
 
-      - name: Debug SSH Connection
-        run: |
-          ssh -v deployuser@192.168.1.231 "echo 'SSH connection successful!'"
-          
+
+
       - name: Deploy with Helm
         run: |
           ssh deployuser@192.168.1.231 << 'EOF'
