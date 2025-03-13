@@ -19,7 +19,7 @@ jobs:
           mkdir -p ~/.ssh
           
           # Load private key from GitHub Secrets
-          echo "${{ secrets.PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" | tr -d '\r' > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
 
           # Add the host to known hosts to prevent SSH prompt issues
@@ -31,7 +31,7 @@ jobs:
           ssh-add ~/.ssh/id_ed25519
 
           # Attempt SSH connection
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "echo 'SSH connection successful!'"
+          ssh -vvv -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "echo 'SSH connection successful!'"
 
       - name: Set up SSH Key
         run: |
