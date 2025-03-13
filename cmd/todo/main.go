@@ -15,9 +15,9 @@ import (
 	"github.com/henryhall897/golang-todo-app/internal/core/logging"
 	"github.com/henryhall897/golang-todo-app/internal/router"
 	"github.com/henryhall897/golang-todo-app/internal/server"
-	userHandlers "github.com/henryhall897/golang-todo-app/internal/users/handler"
+	userhandlers "github.com/henryhall897/golang-todo-app/internal/users/handler"
 	"github.com/henryhall897/golang-todo-app/internal/users/repository"
-	userRoutes "github.com/henryhall897/golang-todo-app/internal/users/routes"
+	userroutes "github.com/henryhall897/golang-todo-app/internal/users/routes"
 	"github.com/henryhall897/golang-todo-app/internal/users/services"
 	"go.uber.org/zap"
 )
@@ -105,18 +105,18 @@ func run(ctx context.Context, logger *zap.SugaredLogger, cfg *config.AppConfig) 
 	userStore := repository.New(pool)
 
 	// Initialize services
-	userService := services.NewService(userStore, logger)
+	userService := services.New(userStore, logger)
 
 	// Initialize HTTP handlers
-	userHandler := userHandlers.NewUserHandler(userService, logger)
+	userHandler := userhandlers.New(userService, logger)
 
 	// Register route functions
 	routeFuncs := []router.RouteRegisterFunc{
-		userRoutes.RegisterRoutes,
+		userroutes.RegisterRoutes,
 	}
 
 	// Initialize the router
-	rt := router.NewRouter(routeFuncs, []userHandlers.Handler{*userHandler})
+	rt := router.NewRouter(routeFuncs, []userhandlers.Handler{*userHandler})
 
 	// Add more route modules here (e.g., tasks, lists)
 

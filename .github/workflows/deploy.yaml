@@ -1,0 +1,28 @@
+name: Deploy to Raspberry Pi
+
+on:
+  push:
+    branches:
+      - master 
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan 192.168.1.231 >> ~/.ssh/known_hosts
+
+      - name: Deploy with Helm
+        run: |
+          ssh admin@192.168.1.231 << 'EOF'
+            cd /home/admin/todo 
+            git pull origin master  
+            helm upgrade --install my-app ./helm-chart/  
+          EOF

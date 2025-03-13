@@ -74,9 +74,12 @@ func (r *repository) GetUserByID(ctx context.Context, id uuid.UUID) (domain.User
 func (r *repository) GetUserByEmail(ctx context.Context, email string) (domain.User, error) {
 	// Execute the query to get the user by email
 	user, err := r.query.GetUserByEmail(ctx, email)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.User{}, fmt.Errorf("email %s: %w", email, common.ErrNotFound)
-	} else if err != nil {
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.User{}, fmt.Errorf("email %s: %w", email, common.ErrNotFound)
+		} else if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.Code == "23505" { // 23505 is PostgreSQL's unique violation error code
+			return domain.User{}, fmt.Errorf("%w", ErrEmailAlreadyExists)
+		}
 		return domain.User{}, fmt.Errorf("email %s: %w", email, common.ErrInternalServerError)
 	}
 

@@ -17,7 +17,7 @@ type service struct {
 	logger *zap.SugaredLogger
 }
 
-func NewService(repo domain.Repository, logger *zap.SugaredLogger) domain.Service {
+func New(repo domain.Repository, logger *zap.SugaredLogger) domain.Service {
 	return &service{
 		repo:   repo,
 		logger: logger,
@@ -40,7 +40,7 @@ func (s *service) CreateUser(ctx context.Context, params domain.CreateUserParams
 			"name", params.Name,
 			"email", params.Email,
 		)
-		return domain.User{}, common.ErrInternalServerError
+		return domain.User{}, err
 	}
 
 	s.logger.Infow("User created successfully",
@@ -159,17 +159,10 @@ func (s *service) UpdateUser(ctx context.Context, params domain.UpdateUserParams
 		if errors.Is(err, common.ErrNotFound) {
 			// User not found, return meaningful error
 			return domain.User{}, common.ErrNotFound
+		} else if errors.Is(err, repository.ErrEmailAlreadyExists) {
+			// Email already exists, return meaningful error
+			return domain.User{}, ErrEmailAlreadyExists
 		}
-
-		if errors.Is(err, repository.ErrInvalidDbUserID) || errors.Is(err, repository.ErrFailedToParseUUID) {
-			// Log and mask database corruption issues as internal errors
-			s.logger.Errorw("UpdateUser failed: invalid user data in database",
-				"user_id", params.ID,
-				"error", err,
-			)
-			return domain.User{}, common.ErrInternalServerError
-		}
-
 		// Log unexpected errors
 		s.logger.Errorw("UpdateUser failed: unexpected internal error",
 			"user_id", params.ID,

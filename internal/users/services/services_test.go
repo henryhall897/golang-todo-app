@@ -30,7 +30,7 @@ func SetupSuite() *ServiceTestSuite {
 
 	mockRepo := &usersmock.RepositoryMock{}
 
-	userService := NewService(mockRepo, logger.Sugar())
+	userService := New(mockRepo, logger.Sugar())
 
 	return &ServiceTestSuite{
 		mockRepo:    mockRepo,
