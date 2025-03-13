@@ -15,24 +15,23 @@ jobs:
 
       - name: Debug SSH Connection
         run: |
-          ssh -v deployuser@192.168.1.231 "echo 'SSH connection successful!'"
-          
+          ssh -o StrictHostKeyChecking=no deployuser@${{ secrets.DEPLOY_HOST }} "echo 'SSH connection successful!'"
+
       - name: Set up SSH Key
         run: |
-          mkdir -p "$HOME/.ssh"
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > "$HOME/.ssh/id_ed25519"
-          chmod 600 "$HOME/.ssh/id_ed25519"
-          ssh-keyscan -H 192.168.1.231 >> "$HOME/.ssh/known_hosts"
-          chmod 644 "$HOME/.ssh/known_hosts"
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" | base64 --decode > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
           eval "$(ssh-agent -s)"
-          ssh-add "$HOME/.ssh/id_ed25519"
-
-
+          ssh-add ~/.ssh/id_ed25519
 
       - name: Deploy with Helm
         run: |
-          ssh deployuser@192.168.1.231 << 'EOF'
-            cd /home/deployuser/todo 
-            git pull origin master  
+          ssh -o StrictHostKeyChecking=no ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
+            cd /home/${{ secrets.DEPLOY_USER }}/todo 
+            git pull origin main
             helm upgrade --install golang-todo-app ./helm-chart/  
           EOF
+
