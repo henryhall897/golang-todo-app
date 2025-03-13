@@ -33,27 +33,47 @@ func (Docker) BuildWSL() error {
 		fmt.Sprintf("%s:latest", imageName))
 }
 
-// BuildPi builds the Docker image for Raspberry Pi (arm64 architecture) with versioning
+// BuildPi builds, tags, and pushes the Docker image for Raspberry Pi (arm64 architecture) to Docker Hub
 func (Docker) BuildPi() error {
 	version := getVersion()
+	dockerHubUsername := os.Getenv("DOCKER_HUB_USERNAME") // Read from environment variable
+	if dockerHubUsername == "" {
+		fmt.Println("ERROR: DOCKER_HUB_USERNAME environment variable is not set.")
+		return fmt.Errorf("DOCKER_HUB_USERNAME environment variable is required")
+	}
 	imageName := "golang-todo-app-pi"
 
-	fmt.Printf("Building Docker image %s:%s for Raspberry Pi...\n", imageName, version)
+	fullImageName := fmt.Sprintf("%s:%s", dockerHubUsername, imageName)
+	fmt.Printf("Building Docker image %s:%s for Raspberry Pi...\n", fullImageName, version)
 
 	// Build the versioned image
 	err := sh.RunV("docker", "build",
 		"--build-arg", "GOOS=linux",
 		"--build-arg", "GOARCH=arm64",
-		"-t", fmt.Sprintf("%s:%s", imageName, version), ".")
+		"-t", fmt.Sprintf("%s:%s", fullImageName, version), ".")
 	if err != nil {
 		return err
 	}
 
 	// Tag the image as latest
 	fmt.Println("Tagging image with latest...")
-	return sh.RunV("docker", "tag",
-		fmt.Sprintf("%s:%s", imageName, version),
-		fmt.Sprintf("%s:latest", imageName))
+	sh.RunV("docker", "tag",
+		fmt.Sprintf("%s:%s", fullImageName, version),
+		fmt.Sprintf("%s:latest", fullImageName))
+
+	// Push the versioned and latest tags to Docker Hub
+	fmt.Println("Pushing image to Docker Hub...")
+	err = sh.RunV("docker", "push", fmt.Sprintf("%s:%s", fullImageName, version))
+	if err != nil {
+		return err
+	}
+
+	err = sh.RunV("docker", "push", fmt.Sprintf("%s:latest", fullImageName))
+	if err != nil {
+		return err
+	}
+	fmt.Println("Image built successfully and Image pushed to Docker Hub")
+	return nil
 }
 
 // Run runs the application container along with the database using Docker Compose.
