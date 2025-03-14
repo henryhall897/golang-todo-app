@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/henryhall897/golang-todo-app/internal/core/common"
 	"github.com/henryhall897/golang-todo-app/internal/users/domain"
@@ -66,18 +67,15 @@ func (h *Handler) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 // GetUserByIDHandler handles retrieving a user by ID
 func (h *Handler) GetUserByIDHandler(w http.ResponseWriter, r *http.Request) {
 	// Extract validated user ID from context
-	userID, ok := r.Context().Value(userIDKey).(string)
+	userID, ok := r.Context().Value(userIDKey).(uuid.UUID)
 	if !ok {
 		h.logger.Errorw("GetUserByID failed: user ID missing in request context")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
-	// Parse the user ID ignore err here since it was validated in middleware
-	parsedUserID, _ := uuid.Parse(userID)
-
 	// Call the service layer
-	user, err := h.service.GetUserByID(r.Context(), parsedUserID)
+	user, err := h.service.GetUserByID(r.Context(), userID)
 	if err != nil {
 		if errors.Is(err, common.ErrNotFound) {
 			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
@@ -98,16 +96,18 @@ func (h *Handler) GetUserByIDHandler(w http.ResponseWriter, r *http.Request) {
 
 // GetUserByEmailHandler handles retrieving a user by email
 func (h *Handler) GetUserByEmailHandler(w http.ResponseWriter, r *http.Request) {
-	// Extract validated query parameters from context
-	queryParams, ok := r.Context().Value(queryParamsKey).(domain.GetQueryParams)
-	if !ok {
-		h.logger.Errorw("GetUserByEmail failed: missing query parameters in context")
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+	// Extract email query parameter
+	email := r.URL.Query().Get("email")
+
+	// Validate email format
+	if len(email) < 3 || len(email) > 320 {
+		h.logger.Warnw("GetUserByEmail failed: invalid email format", "email", email)
+		http.Error(w, "Invalid email format", http.StatusBadRequest)
 		return
 	}
 
 	// Call the service layer
-	user, err := h.service.GetUserByEmail(r.Context(), queryParams.Email)
+	user, err := h.service.GetUserByEmail(r.Context(), email)
 	if err != nil {
 		if errors.Is(err, common.ErrNotFound) {
 			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
@@ -120,31 +120,45 @@ func (h *Handler) GetUserByEmailHandler(w http.ResponseWriter, r *http.Request) 
 	// Return the user as JSON
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(user); err != nil {
-		h.logger.Errorw("GetUserByEmail failed: failed to encode response", "email", queryParams.Email, "error", err)
+		h.logger.Errorw("GetUserByEmail failed: failed to encode response", "email", email, "error", err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }
 
-// GetUsersHandler handles retrieving a list of users or a user by email
+// GetUsersHandler handles retrieving a list of users
 func (h *Handler) GetUsersHandler(w http.ResponseWriter, r *http.Request) {
-	// Extract validated query parameters from context
-	queryParams, ok := r.Context().Value(queryParamsKey).(domain.GetQueryParams)
-	if !ok {
-		h.logger.Errorw("GetUsersHandler failed: missing query parameters in context")
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
+	logger := h.logger
+
+	// Extract query parameters
+	limit := domain.DefaultLimit
+	offset := domain.DefaultOffset
+
+	// Parse limit parameter if provided
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		parsedLimit, err := strconv.Atoi(limitStr)
+		if err != nil || parsedLimit <= 0 {
+			logger.Warnw("GetUsersHandler failed: invalid limit parameter", "limit", limitStr)
+			http.Error(w, "Invalid limit parameter", http.StatusBadRequest)
+			return
+		}
+		limit = parsedLimit
 	}
 
-	// If email is provided, delegate request to GetUserByEmailHandler
-	if queryParams.QueryType == domain.QueryTypeEmail {
-		h.GetUserByEmailHandler(w, r)
-		return
+	// Parse offset parameter if provided
+	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
+		parsedOffset, err := strconv.Atoi(offsetStr)
+		if err != nil || parsedOffset < 0 {
+			logger.Warnw("GetUsersHandler failed: invalid offset parameter", "offset", offsetStr)
+			http.Error(w, "Invalid offset parameter", http.StatusBadRequest)
+			return
+		}
+		offset = parsedOffset
 	}
 
 	// Construct user query params for listing users
 	getUsersParams := domain.GetUsersParams{
-		Limit:  queryParams.Limit,
-		Offset: queryParams.Offset,
+		Limit:  limit,
+		Offset: offset,
 	}
 
 	// Call the service layer
@@ -154,7 +168,7 @@ func (h *Handler) GetUsersHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 			return
 		}
-		h.logger.Errorw("GetUsersHandler failed: internal server error", "params", getUsersParams, "error", err)
+		logger.Errorw("GetUsersHandler failed: internal server error", "params", getUsersParams, "error", err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -167,7 +181,7 @@ func (h *Handler) GetUsersHandler(w http.ResponseWriter, r *http.Request) {
 	// Return JSON response
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(users); err != nil {
-		h.logger.Errorw("GetUsersHandler failed: failed to encode response", "params", getUsersParams, "error", err)
+		logger.Errorw("GetUsersHandler failed: failed to encode response", "params", getUsersParams, "error", err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }

@@ -53,7 +53,7 @@ func SetupSuite() *HandlerTestSuite {
 // Test the CreateUserHandler function
 func TestCreateUserHandler(t *testing.T) {
 	suite := SetupSuite()
-	suite.router.Handle("/users", MethodHandler("POST", suite.handler.CreateUserHandler))
+	suite.router.Handle("/users", http.HandlerFunc(suite.handler.CreateUserHandler))
 
 	sampleUser := testutils.GenerateMockUsers(1)[0]
 
@@ -141,7 +141,10 @@ func TestCreateUserHandler(t *testing.T) {
 // TestGetUserByIDHandler tests retrieving a user by ID
 func TestGetUserByIDHandler(t *testing.T) {
 	suite := SetupSuite()
-	suite.router.Handle("/users/", MethodHandler("GET", VerifyUserID(http.HandlerFunc(suite.handler.GetUserByIDHandler))))
+	suite.router.Handle("/users/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Call VerifyUserID before executing the actual handler
+		VerifyUserID(http.HandlerFunc(suite.handler.GetUserByIDHandler)).ServeHTTP(w, r)
+	}))
 
 	sampleUser := testutils.GenerateMockUsers(1)[0]
 
@@ -204,12 +207,13 @@ func TestGetUserByIDHandler(t *testing.T) {
 		require.Equal(t, http.StatusInternalServerError, rr.Code)
 		assert.Equal(t, http.StatusText(http.StatusInternalServerError)+"\n", rr.Body.String())
 	})
+
 }
 
 // TestGetUsersHandler tests retrieving a list of users
 func TestGetUsersHandler(t *testing.T) {
 	suite := SetupSuite()
-	suite.router.Handle("/users", MethodHandler("GET", WhichGetUsers(suite.handler.GetUsersHandler)))
+	suite.router.Handle("/users", http.HandlerFunc(suite.handler.GetUsersHandler))
 
 	// Generate a sample list of users
 	sampleUsers := testutils.GenerateMockUsers(3)
@@ -282,7 +286,7 @@ func TestGetUsersHandler(t *testing.T) {
 // TestGetUserByEmailHandler tests retrieving a user by email
 func TestGetUserByEmailHandler(t *testing.T) {
 	suite := SetupSuite()
-	suite.router.Handle("/users", MethodHandler("GET", WhichGetUsers(suite.handler.GetUserByEmailHandler)))
+	suite.router.Handle("/users", http.HandlerFunc(suite.handler.GetUserByEmailHandler))
 
 	// Generate a sample user
 	sampleUser := testutils.GenerateMockUsers(1)[0]
@@ -352,7 +356,7 @@ func TestGetUserByEmailHandler(t *testing.T) {
 // TestUpdateUserHandler tests updating a user's information
 func TestUpdateUserHandler(t *testing.T) {
 	suite := SetupSuite()
-	suite.router.Handle("/users/{id}", MethodHandler("PUT", VerifyUserID(suite.handler.UpdateUserHandler)))
+	suite.router.Handle("/users/", VerifyUserID(suite.handler.UpdateUserHandler))
 
 	// Generate a sample user
 	sampleUser := testutils.GenerateMockUsers(1)[0]
@@ -454,12 +458,13 @@ func TestUpdateUserHandler(t *testing.T) {
 		require.Equal(t, http.StatusInternalServerError, rr.Code)
 		assert.Equal(t, http.StatusText(http.StatusInternalServerError)+"\n", rr.Body.String())
 	})
+
 }
 
 // TestDeleteUserHandler tests deleting a user by ID
 func TestDeleteUserHandler(t *testing.T) {
 	suite := SetupSuite()
-	suite.router.Handle("/users/{id}", MethodHandler("DELETE", VerifyUserID(suite.handler.DeleteUserHandler)))
+	suite.router.Handle("/users/", VerifyUserID(suite.handler.DeleteUserHandler))
 
 	// Generate a sample user
 	sampleUser := testutils.GenerateMockUsers(1)[0]

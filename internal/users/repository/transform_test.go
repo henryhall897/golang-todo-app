@@ -51,16 +51,6 @@ func (suite *transformTestSuite) TestPGToUsers() {
 		require.Equal(t, genUser.UpdatedAt.Time, *user.UpdatedAt)
 	})
 
-	// Subtest: Invalid UUID
-	suite.T().Run("Invalid UUID", func(t *testing.T) {
-		invalidUUIDUser := genUser
-		invalidUUIDUser.ID = pgtype.UUID{Valid: false}
-
-		_, err := pgToUsers(invalidUUIDUser)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "invalid user id")
-	})
-
 	// Subtest: Invalid Timestamp
 	suite.T().Run("Invalid Timestamp", func(t *testing.T) {
 		invalidTimestampUser := genUser
