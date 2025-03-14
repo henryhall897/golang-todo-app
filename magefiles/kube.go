@@ -15,7 +15,7 @@ func (Kube) Deploy() error {
 
 	// Define Helm release name and chart path
 	releaseName := "golang-todo-app"
-	chartPath := "../helm-chart"
+	chartPath := "./helm-chart"
 
 	// Run Helm upgrade/install command
 	return sh.RunV("helm", "upgrade", "--install", releaseName, chartPath, "--namespace", "default", "--create-namespace")

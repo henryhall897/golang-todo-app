@@ -1,8 +1,11 @@
 package main
 
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
+	"os/exec"
+	"strings"
 
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
@@ -36,43 +39,62 @@ func (Docker) BuildWSL() error {
 // BuildPi builds, tags, and pushes the Docker image for Raspberry Pi (arm64 architecture) to Docker Hub
 func (Docker) BuildPi() error {
 	version := getVersion()
-	dockerHubUsername := os.Getenv("DOCKER_HUB_USERNAME") // Read from environment variable
-	if dockerHubUsername == "" {
-		fmt.Println("ERROR: DOCKER_HUB_USERNAME environment variable is not set.")
-		return fmt.Errorf("DOCKER_HUB_USERNAME environment variable is required")
-	}
-	imageName := "golang-todo-app-pi"
 
-	fullImageName := fmt.Sprintf("%s:%s", dockerHubUsername, imageName)
+	// Retrieve the Docker Hub username from the Kubernetes Secret
+	cmd := exec.Command("kubectl", "get", "secret", "golang-todo-secret", "-o", "jsonpath={.data.DOCKER_HUB_USERNAME}")
+	output, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to fetch DOCKER_HUB_USERNAME from Kubernetes: %v", err)
+	}
+
+	// Decode base64 output
+	usernameBytes, err := base64.StdEncoding.DecodeString(strings.TrimSpace(string(output)))
+	if err != nil {
+		return fmt.Errorf("failed to decode DOCKER_HUB_USERNAME: %v", err)
+	}
+	dockerHubUsername := string(usernameBytes)
+
+	if dockerHubUsername == "" {
+		fmt.Println("ERROR: DOCKER_HUB_USERNAME not found in Kubernetes Secret.")
+		return fmt.Errorf("DOCKER_HUB_USERNAME is required")
+	}
+
+	imageName := "golang-todo-app-pi"
+	fullImageName := fmt.Sprintf("docker.io/%s/%s", dockerHubUsername, imageName)
+
 	fmt.Printf("Building Docker image %s:%s for Raspberry Pi...\n", fullImageName, version)
 
 	// Build the versioned image
-	err := sh.RunV("docker", "build",
+	err = sh.RunV("docker", "buildx", "build",
 		"--build-arg", "GOOS=linux",
 		"--build-arg", "GOARCH=arm64",
 		"-t", fmt.Sprintf("%s:%s", fullImageName, version), ".")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to build image: %v", err)
 	}
 
 	// Tag the image as latest
 	fmt.Println("Tagging image with latest...")
-	sh.RunV("docker", "tag",
+	err = sh.RunV("docker", "tag",
 		fmt.Sprintf("%s:%s", fullImageName, version),
 		fmt.Sprintf("%s:latest", fullImageName))
+	if err != nil {
+		return fmt.Errorf("failed to tag image: %v", err)
+	}
 
 	// Push the versioned and latest tags to Docker Hub
 	fmt.Println("Pushing image to Docker Hub...")
 	err = sh.RunV("docker", "push", fmt.Sprintf("%s:%s", fullImageName, version))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to push versioned image: %v", err)
 	}
 
 	err = sh.RunV("docker", "push", fmt.Sprintf("%s:latest", fullImageName))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to push latest image: %v", err)
 	}
-	fmt.Println("Image built successfully and Image pushed to Docker Hub")
+
+	fmt.Println("Image built successfully and pushed to Docker Hub.")
 	return nil
 }
 
