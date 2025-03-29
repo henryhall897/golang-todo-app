@@ -28,11 +28,19 @@ type LoggingConfig struct {
 	Format bool   `env:"LOG_FORMAT,default=false"`
 }
 
+// RedisConfig holds Redis configuration.
+type RedisConfig struct {
+	Address  string `env:"REDIS_ADDRESS,required"`
+	Password string `env:"REDIS_PASSWORD,default="`
+	DB       int    `env:"REDIS_DB,default=0"`
+}
+
 // AppConfig holds the complete application configuration
 type AppConfig struct {
 	Database DatabaseConfig
 	Server   ServerConfig
 	Logger   LoggingConfig
+	Redis    RedisConfig
 }
 
 // LoadConfig loads the entire configuration from environment variables

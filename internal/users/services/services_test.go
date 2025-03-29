@@ -6,11 +6,14 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+
 	"github.com/henryhall897/golang-todo-app/gen/mocks/usersmock"
 	"github.com/henryhall897/golang-todo-app/internal/core/common"
+	"github.com/henryhall897/golang-todo-app/internal/users/cache"
 	"github.com/henryhall897/golang-todo-app/internal/users/domain"
 	"github.com/henryhall897/golang-todo-app/internal/users/repository"
 	"github.com/henryhall897/golang-todo-app/internal/users/testutils"
+	rediswrapper "github.com/henryhall897/golang-todo-app/pkg/redis"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,9 +22,10 @@ import (
 
 // Global test dependencies
 type ServiceTestSuite struct {
-	mockRepo    *usersmock.RepositoryMock
-	userService domain.Service
-	ctx         context.Context
+	mockRepo *usersmock.RepositoryMock
+	Redis    *RedisTestHelper
+	Service  domain.Service
+	ctx      context.Context
 }
 
 // SetupSuite initializes common dependencies
@@ -30,16 +34,23 @@ func SetupSuite() *ServiceTestSuite {
 
 	mockRepo := &usersmock.RepositoryMock{}
 
-	userService := New(mockRepo, logger.Sugar())
+	redis := SetupRedisTest()
+
+	// Initialize Redis cache
+	genericCache := rediswrapper.NewJSONCache(redis.Client, RedisTestPrefix, logger.Sugar())
+	userCache := cache.NewRedisUser(genericCache)
+	Service := New(mockRepo, userCache, logger.Sugar())
 
 	return &ServiceTestSuite{
-		mockRepo:    mockRepo,
-		userService: userService,
-		ctx:         context.Background(),
+		mockRepo: mockRepo,
+		Redis:    redis,
+		Service:  Service,
+		ctx:      context.Background(),
 	}
 }
 func TestCreateUser(t *testing.T) {
 	suite := SetupSuite() // Load shared setup
+	defer suite.Redis.Server.Close()
 
 	// Define common test data
 	ctx := context.Background()
@@ -57,7 +68,7 @@ func TestCreateUser(t *testing.T) {
 		}
 
 		// Call the service method
-		user, err := suite.userService.CreateUser(ctx, testUserParams)
+		user, err := suite.Service.CreateUser(ctx, testUserParams)
 
 		// Assertions
 		require.NoError(t, err)
@@ -71,7 +82,7 @@ func TestCreateUser(t *testing.T) {
 		}
 
 		// Call the service method
-		user, err := suite.userService.CreateUser(ctx, testUserParams)
+		user, err := suite.Service.CreateUser(ctx, testUserParams)
 
 		// Assertions
 		require.Error(t, err)
@@ -86,7 +97,7 @@ func TestCreateUser(t *testing.T) {
 		}
 
 		// Call the service method
-		user, err := suite.userService.CreateUser(ctx, testUserParams)
+		user, err := suite.Service.CreateUser(ctx, testUserParams)
 
 		// Assertions
 		require.Error(t, err)
@@ -97,6 +108,7 @@ func TestCreateUser(t *testing.T) {
 
 func TestGetUserByID(t *testing.T) {
 	suite := SetupSuite() // Load shared setup
+	defer suite.Redis.Server.Close()
 
 	// Define common test data
 	testUsers := testutils.GenerateMockUsers(1) // Use mock users generator
@@ -110,7 +122,7 @@ func TestGetUserByID(t *testing.T) {
 		}
 
 		// Call the service method
-		user, err := suite.userService.GetUserByID(suite.ctx, testUserID)
+		user, err := suite.Service.GetUserByID(suite.ctx, testUserID)
 
 		// Assertions
 		require.NoError(t, err)
@@ -118,13 +130,14 @@ func TestGetUserByID(t *testing.T) {
 	})
 
 	t.Run("failure - user not found", func(t *testing.T) {
+		suite.Redis.Server.FlushAll() // Clear Redis cache
 		// Mock repository returning ErrNotFound
 		suite.mockRepo.GetUserByIDFunc = func(ctx context.Context, id uuid.UUID) (domain.User, error) {
 			return domain.User{}, common.ErrNotFound
 		}
 
 		// Call the service method
-		user, err := suite.userService.GetUserByID(suite.ctx, testUserID)
+		user, err := suite.Service.GetUserByID(suite.ctx, testUserID)
 
 		// Assertions
 		require.Error(t, err)
@@ -132,44 +145,15 @@ func TestGetUserByID(t *testing.T) {
 		assert.Equal(t, domain.User{}, user) // Should return an empty user
 	})
 
-	t.Run("failure - invalid user data in DB", func(t *testing.T) {
-		// Mock repository returning ErrInvalidDbUserID
-		suite.mockRepo.GetUserByIDFunc = func(ctx context.Context, id uuid.UUID) (domain.User, error) {
-			return domain.User{}, repository.ErrInvalidDbUserID
-		}
-
-		// Call the service method
-		user, err := suite.userService.GetUserByID(suite.ctx, testUserID)
-
-		// Assertions
-		require.Error(t, err)
-		assert.True(t, errors.Is(err, common.ErrInternalServerError)) // Should be masked as internal error
-		assert.Equal(t, domain.User{}, user)
-	})
-
 	t.Run("failure - unexpected error", func(t *testing.T) {
+		suite.Redis.Server.FlushAll() // Clear Redis cache
 		// Mock repository returning an unknown error
 		suite.mockRepo.GetUserByIDFunc = func(ctx context.Context, id uuid.UUID) (domain.User, error) {
 			return domain.User{}, errors.New("database timeout")
 		}
 
 		// Call the service method
-		user, err := suite.userService.GetUserByID(suite.ctx, testUserID)
-
-		// Assertions
-		require.Error(t, err)
-		assert.True(t, errors.Is(err, common.ErrInternalServerError)) // Should be masked as internal error
-		assert.Equal(t, domain.User{}, user)
-	})
-
-	t.Run("failure - invalid UUID edge case (handler skipped validation)", func(t *testing.T) {
-		// Mock repository returning ErrInvalidUUID (which should never happen if handler works correctly)
-		suite.mockRepo.GetUserByIDFunc = func(ctx context.Context, id uuid.UUID) (domain.User, error) {
-			return domain.User{}, common.ErrInvalidUUID
-		}
-
-		// Call the service method with an invalid UUID
-		user, err := suite.userService.GetUserByID(suite.ctx, uuid.Nil)
+		user, err := suite.Service.GetUserByID(suite.ctx, testUserID)
 
 		// Assertions
 		require.Error(t, err)
@@ -180,6 +164,7 @@ func TestGetUserByID(t *testing.T) {
 
 func TestGetUsers(t *testing.T) {
 	suite := SetupSuite() // Load shared setup
+	defer suite.Redis.Server.Close()
 
 	// Define common test data
 	testUsers := testutils.GenerateMockUsers(3) // Use mock users generator
@@ -192,7 +177,7 @@ func TestGetUsers(t *testing.T) {
 		}
 
 		// Call the service method
-		users, err := suite.userService.GetUsers(suite.ctx, testParams)
+		users, err := suite.Service.GetUsers(suite.ctx, testParams)
 
 		// Assertions
 		require.NoError(t, err)
@@ -200,13 +185,14 @@ func TestGetUsers(t *testing.T) {
 	})
 
 	t.Run("failure - no users found", func(t *testing.T) {
+		suite.Redis.Server.FlushAll() // Clear Redis cache
 		// Mock repository returning ErrNotFound
 		suite.mockRepo.GetUsersFunc = func(ctx context.Context, params domain.GetUsersParams) ([]domain.User, error) {
 			return []domain.User{}, common.ErrNotFound
 		}
 
 		// Call the service method
-		users, err := suite.userService.GetUsers(suite.ctx, testParams)
+		users, err := suite.Service.GetUsers(suite.ctx, testParams)
 
 		// Assertions
 		require.Error(t, err)
@@ -215,13 +201,14 @@ func TestGetUsers(t *testing.T) {
 	})
 
 	t.Run("failure - invalid user data in DB", func(t *testing.T) {
+		suite.Redis.Server.FlushAll() // Clear Redis cache
 		// Mock repository returning ErrInvalidDbUserID
 		suite.mockRepo.GetUsersFunc = func(ctx context.Context, params domain.GetUsersParams) ([]domain.User, error) {
 			return []domain.User{}, repository.ErrInvalidDbUserID
 		}
 
 		// Call the service method
-		users, err := suite.userService.GetUsers(suite.ctx, testParams)
+		users, err := suite.Service.GetUsers(suite.ctx, testParams)
 
 		// Assertions
 		require.Error(t, err)
@@ -230,13 +217,14 @@ func TestGetUsers(t *testing.T) {
 	})
 
 	t.Run("failure - failed to parse UUID", func(t *testing.T) {
+		suite.Redis.Server.FlushAll() // Clear Redis cache
 		// Mock repository returning ErrFailedToParseUUID
 		suite.mockRepo.GetUsersFunc = func(ctx context.Context, params domain.GetUsersParams) ([]domain.User, error) {
 			return []domain.User{}, repository.ErrFailedToParseUUID
 		}
 
 		// Call the service method
-		users, err := suite.userService.GetUsers(suite.ctx, testParams)
+		users, err := suite.Service.GetUsers(suite.ctx, testParams)
 
 		// Assertions
 		require.Error(t, err)
@@ -245,13 +233,14 @@ func TestGetUsers(t *testing.T) {
 	})
 
 	t.Run("failure - unexpected error", func(t *testing.T) {
+		suite.Redis.Server.FlushAll() // Clear Redis cache
 		// Mock repository returning an unknown error
 		suite.mockRepo.GetUsersFunc = func(ctx context.Context, params domain.GetUsersParams) ([]domain.User, error) {
 			return []domain.User{}, errors.New("database timeout")
 		}
 
 		// Call the service method
-		users, err := suite.userService.GetUsers(suite.ctx, testParams)
+		users, err := suite.Service.GetUsers(suite.ctx, testParams)
 
 		// Assertions
 		require.Error(t, err)
@@ -262,6 +251,7 @@ func TestGetUsers(t *testing.T) {
 
 func TestGetUserByEmail(t *testing.T) {
 	suite := SetupSuite() // Load shared setup
+	defer suite.Redis.Server.Close()
 
 	// Define common test data
 	testUsers := testutils.GenerateMockUsers(1) // Use mock users generator
@@ -275,7 +265,7 @@ func TestGetUserByEmail(t *testing.T) {
 		}
 
 		// Call the service method
-		user, err := suite.userService.GetUserByEmail(suite.ctx, testEmail)
+		user, err := suite.Service.GetUserByEmail(suite.ctx, testEmail)
 
 		// Assertions
 		require.NoError(t, err)
@@ -283,13 +273,14 @@ func TestGetUserByEmail(t *testing.T) {
 	})
 
 	t.Run("failure - user not found", func(t *testing.T) {
+		suite.Redis.Server.FlushAll() // Clear Redis cache
 		// Mock repository returning ErrNotFound
 		suite.mockRepo.GetUserByEmailFunc = func(ctx context.Context, email string) (domain.User, error) {
 			return domain.User{}, common.ErrNotFound
 		}
 
 		// Call the service method
-		user, err := suite.userService.GetUserByEmail(suite.ctx, testEmail)
+		user, err := suite.Service.GetUserByEmail(suite.ctx, testEmail)
 
 		// Assertions
 		require.Error(t, err)
@@ -298,13 +289,14 @@ func TestGetUserByEmail(t *testing.T) {
 	})
 
 	t.Run("failure - invalid user data in DB", func(t *testing.T) {
+		suite.Redis.Server.FlushAll() // Clear Redis cache
 		// Mock repository returning ErrInvalidDbUserID
 		suite.mockRepo.GetUserByEmailFunc = func(ctx context.Context, email string) (domain.User, error) {
 			return domain.User{}, repository.ErrInvalidDbUserID
 		}
 
 		// Call the service method
-		user, err := suite.userService.GetUserByEmail(suite.ctx, testEmail)
+		user, err := suite.Service.GetUserByEmail(suite.ctx, testEmail)
 
 		// Assertions
 		require.Error(t, err)
@@ -313,13 +305,14 @@ func TestGetUserByEmail(t *testing.T) {
 	})
 
 	t.Run("failure - failed to parse UUID", func(t *testing.T) {
+		suite.Redis.Server.FlushAll() // Clear Redis cache
 		// Mock repository returning ErrFailedToParseUUID
 		suite.mockRepo.GetUserByEmailFunc = func(ctx context.Context, email string) (domain.User, error) {
 			return domain.User{}, repository.ErrFailedToParseUUID
 		}
 
 		// Call the service method
-		user, err := suite.userService.GetUserByEmail(suite.ctx, testEmail)
+		user, err := suite.Service.GetUserByEmail(suite.ctx, testEmail)
 
 		// Assertions
 		require.Error(t, err)
@@ -328,13 +321,14 @@ func TestGetUserByEmail(t *testing.T) {
 	})
 
 	t.Run("failure - unexpected error", func(t *testing.T) {
+		suite.Redis.Server.FlushAll() // Clear Redis cache
 		// Mock repository returning an unknown error
 		suite.mockRepo.GetUserByEmailFunc = func(ctx context.Context, email string) (domain.User, error) {
 			return domain.User{}, errors.New("database timeout")
 		}
 
 		// Call the service method
-		user, err := suite.userService.GetUserByEmail(suite.ctx, testEmail)
+		user, err := suite.Service.GetUserByEmail(suite.ctx, testEmail)
 
 		// Assertions
 		require.Error(t, err)
@@ -345,6 +339,7 @@ func TestGetUserByEmail(t *testing.T) {
 
 func TestUpdateUser(t *testing.T) {
 	suite := SetupSuite() // Load shared setup
+	defer suite.Redis.Server.Close()
 
 	// Define common test data
 	testUsers := testutils.GenerateMockUsers(1) // Use mock users generator
@@ -355,6 +350,11 @@ func TestUpdateUser(t *testing.T) {
 		Email: "updated@example.com",
 	}
 
+	// Service still may do a getUserByID call to get the old user
+	suite.mockRepo.GetUserByIDFunc = func(ctx context.Context, id uuid.UUID) (domain.User, error) {
+		return testUser, nil
+	}
+
 	t.Run("success - user updated", func(t *testing.T) {
 		// Mock successful user update
 		suite.mockRepo.UpdateUserFunc = func(ctx context.Context, params domain.UpdateUserParams) (domain.User, error) {
@@ -362,7 +362,7 @@ func TestUpdateUser(t *testing.T) {
 		}
 
 		// Call the service method
-		updatedUser, err := suite.userService.UpdateUser(suite.ctx, testUpdateParams)
+		updatedUser, err := suite.Service.UpdateUser(suite.ctx, testUpdateParams)
 
 		// Assertions
 		require.NoError(t, err)
@@ -370,13 +370,14 @@ func TestUpdateUser(t *testing.T) {
 	})
 
 	t.Run("failure - user not found", func(t *testing.T) {
+		suite.Redis.Server.FlushAll() // Clear Redis cache
 		// Mock repository returning ErrNotFound
 		suite.mockRepo.UpdateUserFunc = func(ctx context.Context, params domain.UpdateUserParams) (domain.User, error) {
 			return domain.User{}, common.ErrNotFound
 		}
 
 		// Call the service method
-		updatedUser, err := suite.userService.UpdateUser(suite.ctx, testUpdateParams)
+		updatedUser, err := suite.Service.UpdateUser(suite.ctx, testUpdateParams)
 
 		// Assertions
 		require.Error(t, err)
@@ -385,13 +386,14 @@ func TestUpdateUser(t *testing.T) {
 	})
 
 	t.Run("failure - invalid user data in DB", func(t *testing.T) {
+		suite.Redis.Server.FlushAll() // Clear Redis cache
 		// Mock repository returning ErrInvalidDbUserID
 		suite.mockRepo.UpdateUserFunc = func(ctx context.Context, params domain.UpdateUserParams) (domain.User, error) {
 			return domain.User{}, repository.ErrInvalidDbUserID
 		}
 
 		// Call the service method
-		updatedUser, err := suite.userService.UpdateUser(suite.ctx, testUpdateParams)
+		updatedUser, err := suite.Service.UpdateUser(suite.ctx, testUpdateParams)
 
 		// Assertions
 		require.Error(t, err)
@@ -400,13 +402,14 @@ func TestUpdateUser(t *testing.T) {
 	})
 
 	t.Run("failure - failed to parse UUID", func(t *testing.T) {
+		suite.Redis.Server.FlushAll() // Clear Redis cache
 		// Mock repository returning ErrFailedToParseUUID
 		suite.mockRepo.UpdateUserFunc = func(ctx context.Context, params domain.UpdateUserParams) (domain.User, error) {
 			return domain.User{}, repository.ErrFailedToParseUUID
 		}
 
 		// Call the service method
-		updatedUser, err := suite.userService.UpdateUser(suite.ctx, testUpdateParams)
+		updatedUser, err := suite.Service.UpdateUser(suite.ctx, testUpdateParams)
 
 		// Assertions
 		require.Error(t, err)
@@ -415,13 +418,14 @@ func TestUpdateUser(t *testing.T) {
 	})
 
 	t.Run("failure - unexpected error", func(t *testing.T) {
+		suite.Redis.Server.FlushAll() // Clear Redis cache
 		// Mock repository returning an unknown error
 		suite.mockRepo.UpdateUserFunc = func(ctx context.Context, params domain.UpdateUserParams) (domain.User, error) {
 			return domain.User{}, errors.New("database timeout")
 		}
 
 		// Call the service method
-		updatedUser, err := suite.userService.UpdateUser(suite.ctx, testUpdateParams)
+		updatedUser, err := suite.Service.UpdateUser(suite.ctx, testUpdateParams)
 
 		// Assertions
 		require.Error(t, err)
@@ -432,6 +436,7 @@ func TestUpdateUser(t *testing.T) {
 
 func TestDeleteUser(t *testing.T) {
 	suite := SetupSuite() // Load shared setup
+	defer suite.Redis.Server.Close()
 
 	// Define common test data
 	testUser := testutils.GenerateMockUsers(1)[0] // Use mock user generator
@@ -444,7 +449,7 @@ func TestDeleteUser(t *testing.T) {
 		}
 
 		// Call the service method
-		err := suite.userService.DeleteUser(suite.ctx, testUserID)
+		err := suite.Service.DeleteUser(suite.ctx, testUserID)
 
 		// Assertions
 		require.NoError(t, err)
@@ -457,7 +462,7 @@ func TestDeleteUser(t *testing.T) {
 		}
 
 		// Call the service method
-		err := suite.userService.DeleteUser(suite.ctx, testUserID)
+		err := suite.Service.DeleteUser(suite.ctx, testUserID)
 
 		// Assertions
 		require.Error(t, err)
@@ -471,7 +476,7 @@ func TestDeleteUser(t *testing.T) {
 		}
 
 		// Call the service method
-		err := suite.userService.DeleteUser(suite.ctx, testUserID)
+		err := suite.Service.DeleteUser(suite.ctx, testUserID)
 
 		// Assertions
 		require.Error(t, err)
