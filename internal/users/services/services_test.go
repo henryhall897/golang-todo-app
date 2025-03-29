@@ -442,6 +442,11 @@ func TestDeleteUser(t *testing.T) {
 	testUser := testutils.GenerateMockUsers(1)[0] // Use mock user generator
 	testUserID := testUser.ID
 
+	// Mock repository for GetUserByID
+	suite.mockRepo.GetUserByIDFunc = func(ctx context.Context, id uuid.UUID) (domain.User, error) {
+		return testUser, nil
+	}
+
 	t.Run("success - user deleted", func(t *testing.T) {
 		// Mock successful user deletion
 		suite.mockRepo.DeleteUserFunc = func(ctx context.Context, id uuid.UUID) error {

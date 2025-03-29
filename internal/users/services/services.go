@@ -189,35 +189,8 @@ func (s *service) GetUserByEmail(ctx context.Context, email string) (domain.User
 
 // UpdateUser updates an existing user's details and refreshes cache
 func (s *service) UpdateUser(ctx context.Context, params domain.UpdateUserParams) (domain.User, error) {
-	// Attempt to fetch the old user from Redis by ID
-	oldUser, err := s.cache.GetUserByID(ctx, params.ID)
-	if err != nil {
-		// Handle cache miss or deserialization failure
-		s.logger.Warnw("Cache miss: Could not retrieve user from Redis by ID", "user_id", params.ID, "error", err)
-		// If RedisByID miss, attempt to fetch by email cache instead
-		oldUser, err = s.cache.GetUserByEmail(ctx, params.Email)
-		if err != nil {
-			// Handle cache miss or deserialization failure
-			s.logger.Warnw("Cache miss: Could not retrieve user from Redis by email either", "user_id", params.ID, "email", params.Email, "error", err)
-		}
-		// If neither ID nor email is cached, fetch from the database
-		dbUser, err := s.repo.GetUserByID(ctx, params.ID)
-		if err != nil {
-			if errors.Is(err, common.ErrNotFound) {
-				return domain.User{}, common.ErrNotFound
-			}
-			s.logger.Errorw("UpdateUser failed: unable to fetch existing user from DB",
-				"user_id", params.ID,
-				"error", err,
-			)
-			return domain.User{}, common.ErrInternalServerError
-		}
-		oldUser = dbUser // Use DB result if Redis failed
-	}
-
-	// Remove stale cache entries before updating
-	s.cache.DeleteUserByID(ctx, oldUser.ID)
-	s.cache.DeleteUserByEmail(ctx, oldUser.Email)
+	// Clear out old cache entries
+	s.clearUserCache(ctx, params.ID)
 
 	// Update user in the database
 	user, err := s.repo.UpdateUser(ctx, params)
@@ -246,9 +219,12 @@ func (s *service) UpdateUser(ctx context.Context, params domain.UpdateUserParams
 	return user, nil
 }
 
-// TODO - Delete from redis cache.
 // DeleteUser deletes a user by ID
 func (s *service) DeleteUser(ctx context.Context, id uuid.UUID) error {
+	// Clear out old cache entries
+	s.clearUserCache(ctx, id)
+
+	// Attempt to delete user from the database
 	err := s.repo.DeleteUser(ctx, id)
 	if err != nil {
 		if errors.Is(err, common.ErrNotFound) {
