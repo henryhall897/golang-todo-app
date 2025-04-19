@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -9,30 +10,30 @@ import (
 
 // RegisterRoutes sets up application routes
 func RegisterRoutes(router *http.ServeMux, h *handler.Handler) {
-	router.Handle("/users/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Extract path segments
-		segments := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-
-		// Handle `/users` (POST & GET)
-		if len(segments) == 1 && segments[0] == "users" {
-			if r.Method == http.MethodPost {
-				h.CreateUserHandler(w, r)
-				return
-			}
-
-			if r.Method == http.MethodGet {
-				email := r.URL.Query().Get("email")
-				if email != "" {
-					h.GetUserByEmailHandler(w, r)
-				} else {
-					h.GetUsersHandler(w, r)
-				}
-				return
-			}
-
-			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+	// Handle `/users` (List Users, Create User)
+	router.HandleFunc("/users", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			h.CreateUserHandler(w, r)
 			return
 		}
+
+		if r.Method == http.MethodGet {
+			email := r.URL.Query().Get("email")
+			if email != "" {
+				h.GetUserByEmailHandler(w, r)
+			} else {
+				h.GetUsersHandler(w, r)
+			}
+			return
+		}
+
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+	})
+	router.Handle("/users/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Printf("Received request: %s %s\n", r.Method, r.URL.Path)
+		// Extract path segments
+		segments := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+		fmt.Printf("length of segments: %d\n", len(segments))
 
 		// Handle `/users/{id}`
 		if len(segments) == 2 {
