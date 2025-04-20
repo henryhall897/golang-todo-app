@@ -2,8 +2,7 @@ import { useAuth0 } from '@auth0/auth0-react'
 import PageLayout from '../layout/PageLayout'
 
 export default function LoginPage() {
-  const { loginWithRedirect, isAuthenticated } = useAuth0()
-  const { isLoading, error } = useAuth0()
+  const { loginWithRedirect, isAuthenticated, isLoading, error } = useAuth0()
   if (isLoading) {
     return <div className="flex items-center justify-center h-screen">Loading...</div>
   }
