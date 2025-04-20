@@ -97,8 +97,9 @@ func TestCreateUser_Cache(t *testing.T) {
 
 		// Call service method (should create user and store in Redis)
 		_, err := suite.Service.CreateUser(suite.ctx, domain.CreateUserParams{
-			Name:  testUser.Name,
-			Email: testUser.Email,
+			Name:   testUser.Name,
+			Email:  testUser.Email,
+			AuthID: testUser.AuthID,
 		})
 		require.NoError(t, err)
 		fmt.Printf("Current Redis keys:\n")
@@ -114,24 +115,32 @@ func TestCreateUser_Cache(t *testing.T) {
 		require.NoError(t, err, "Expected Redis to contain the cached user by ID")
 		assert.NotEmpty(t, cachedUserJSONByID, "Expected Redis to store the user after creation")
 
-		// Verify user is now cached in Redis by Email
-		cachedUserJSONByEmail, err := suite.Redis.Server.Get(cacheKeyByEmail)
-		require.NoError(t, err, "Expected Redis to contain the cached user by Email")
-		assert.NotEmpty(t, cachedUserJSONByEmail, "Expected Redis to store the user after creation")
-
-		// Deserialize cached users
-		var cachedUserByID, cachedUserByEmail domain.User
+		// Deserialize only the full user record (from ID key)
+		var cachedUserByID domain.User
 		require.NoError(t, json.Unmarshal([]byte(cachedUserJSONByID), &cachedUserByID))
-		require.NoError(t, json.Unmarshal([]byte(cachedUserJSONByEmail), &cachedUserByEmail))
 
 		// Ensure cached users match the created user
 		assert.Equal(t, testUser.ID, cachedUserByID.ID)
 		assert.Equal(t, testUser.Name, cachedUserByID.Name)
 		assert.Equal(t, testUser.Email, cachedUserByID.Email)
 
-		assert.Equal(t, testUser.ID, cachedUserByEmail.ID)
-		assert.Equal(t, testUser.Name, cachedUserByEmail.Name)
-		assert.Equal(t, testUser.Email, cachedUserByEmail.Email)
+		// Check email pointer exists and points to correct ID
+		emailPointerValue, err := suite.Redis.Server.Get(cacheKeyByEmail)
+		require.NoError(t, err, "Expected Redis to contain the email pointer")
+		parsedEmailUUID, err := uuid.Parse(emailPointerValue)
+		require.NoError(t, err, "Email pointer is not a valid UUID")
+		assert.Equal(t, testUser.ID, parsedEmailUUID, "Email pointer should match user ID")
+
+		// Check auth_id pointer exists and points to correct ID
+		authIDPointerKey := domain.CacheKeyByAuthID(testUser.AuthID)
+		cacheKeyByAuthID := RedisFullKey(authIDPointerKey)
+
+		authPointerValue, err := suite.Redis.Server.Get(cacheKeyByAuthID)
+		require.NoError(t, err, "Expected Redis to contain the auth_id pointer")
+		parsedAuthUUID, err := uuid.Parse(authPointerValue)
+		require.NoError(t, err, "AuthID pointer is not a valid UUID")
+		assert.Equal(t, testUser.ID, parsedAuthUUID, "AuthID pointer should match user ID")
+
 	})
 
 	t.Run("failure - Redis error does not impact user creation", func(t *testing.T) {
@@ -339,10 +348,11 @@ func TestGetUserByEmail_Cache(t *testing.T) {
 
 		// Call service method (should fetch from DB and store in Redis)
 		_, err := suite.Service.GetUserByEmail(suite.ctx, testUser.Email)
+		fullUserKey := RedisFullKey(domain.CacheKeyByID(testUser.ID))
 		require.NoError(t, err)
 
 		// Verify the user is now cached in Redis
-		cachedUserJSON, err := suite.Redis.Server.Get(cacheKey)
+		cachedUserJSON, err := suite.Redis.Server.Get(fullUserKey)
 		require.NoError(t, err, "Expected Redis to contain the cached user")
 		assert.NotEmpty(t, cachedUserJSON, "Expected Redis to store the user after DB fetch")
 
@@ -392,6 +402,87 @@ func TestGetUserByEmail_Cache(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, testUser.ID, user.ID)
 		assert.Equal(t, testUser.Name, user.Name)
+		assert.Equal(t, testUser.Email, user.Email)
+		assert.WithinDuration(t, *testUser.CreatedAt, *user.CreatedAt, time.Millisecond)
+		assert.WithinDuration(t, *testUser.UpdatedAt, *user.UpdatedAt, time.Millisecond)
+	})
+}
+
+func TestGetUserByAuthID_Cache(t *testing.T) {
+	suite := SetupSuite()
+	defer suite.Redis.Server.Close()
+
+	mockUsers := testutils.GenerateMockUsers(1)
+	testUser := mockUsers[0]
+
+	// Cache key for the pointer (auth_id → id)
+	pointerKey := domain.CacheKeyByAuthID(testUser.AuthID)
+	fullKey := domain.CacheKeyByID(testUser.ID)
+	pointerRedisKey := RedisFullKey(pointerKey)
+	fullRedisKey := RedisFullKey(fullKey)
+
+	t.Run("success - cache miss, fetch from DB and store pointer + user", func(t *testing.T) {
+		require.False(t, suite.Redis.Server.Exists(pointerRedisKey), "Pointer key should not exist before call")
+
+		// Simulate DB returning the user
+		suite.mockRepo.GetUserByAuthIDFunc = func(ctx context.Context, authID string) (domain.User, error) {
+			return testUser, nil
+		}
+
+		_, err := suite.Service.GetUserByAuthID(suite.ctx, testUser.AuthID)
+		require.NoError(t, err)
+
+		// Verify pointer is now in Redis
+		pointerVal, err := suite.Redis.Server.Get(pointerRedisKey)
+		require.NoError(t, err, "Expected Redis to contain pointer key")
+		assert.Equal(t, fullKey, pointerVal)
+
+		// Verify full user is cached
+		userJSON, err := suite.Redis.Server.Get(fullRedisKey)
+		require.NoError(t, err, "Expected Redis to contain full user")
+		assert.NotEmpty(t, userJSON)
+
+		// Validate deserialization
+		var cachedUser domain.User
+		err = json.Unmarshal([]byte(userJSON), &cachedUser)
+		require.NoError(t, err)
+		assert.Equal(t, testUser.ID, cachedUser.ID)
+		assert.Equal(t, testUser.AuthID, cachedUser.AuthID)
+		assert.Equal(t, testUser.Email, cachedUser.Email)
+		assert.WithinDuration(t, *testUser.CreatedAt, *cachedUser.CreatedAt, time.Millisecond)
+		assert.WithinDuration(t, *testUser.UpdatedAt, *cachedUser.UpdatedAt, time.Millisecond)
+	})
+
+	t.Run("success - cache hit via pointer", func(t *testing.T) {
+		userJSON, _ := json.Marshal(testUser)
+
+		// Set the full user and pointer manually in Redis
+		suite.Redis.Server.Set(pointerRedisKey, fullKey)
+		suite.Redis.Server.Set(fullRedisKey, string(userJSON))
+
+		user, err := suite.Service.GetUserByAuthID(suite.ctx, testUser.AuthID)
+		require.NoError(t, err)
+
+		assert.Equal(t, testUser.ID, user.ID)
+		assert.Equal(t, testUser.AuthID, user.AuthID)
+		assert.Equal(t, testUser.Email, user.Email)
+		assert.WithinDuration(t, *testUser.CreatedAt, *user.CreatedAt, time.Millisecond)
+		assert.WithinDuration(t, *testUser.UpdatedAt, *user.UpdatedAt, time.Millisecond)
+	})
+
+	t.Run("failure - Redis down, fallback to DB", func(t *testing.T) {
+		suite.Redis.Server.Close() // simulate Redis failure
+
+		// Mock DB fallback
+		suite.mockRepo.GetUserByAuthIDFunc = func(ctx context.Context, authID string) (domain.User, error) {
+			return testUser, nil
+		}
+
+		user, err := suite.Service.GetUserByAuthID(suite.ctx, testUser.AuthID)
+		require.NoError(t, err)
+
+		assert.Equal(t, testUser.ID, user.ID)
+		assert.Equal(t, testUser.AuthID, user.AuthID)
 		assert.Equal(t, testUser.Email, user.Email)
 		assert.WithinDuration(t, *testUser.CreatedAt, *user.CreatedAt, time.Millisecond)
 		assert.WithinDuration(t, *testUser.UpdatedAt, *user.UpdatedAt, time.Millisecond)

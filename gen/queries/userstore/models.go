@@ -36,4 +36,5 @@ type User struct {
 	Email     string           `json:"email"`
 	CreatedAt pgtype.Timestamp `json:"created_at"`
 	UpdatedAt pgtype.Timestamp `json:"updated_at"`
+	AuthID    string           `json:"auth_id"`
 }

@@ -1,7 +1,7 @@
 -- Create a new user
 -- name: CreateUser :one
-INSERT INTO users (name, email)
-VALUES ($1, $2)
+INSERT INTO users (name, email, auth_id)
+VALUES ($1, $2, $3)
 RETURNING *;
 
 -- Retrieve a user by ID
@@ -9,6 +9,13 @@ RETURNING *;
 SELECT *
 FROM users
 WHERE id = $1;
+
+-- Retrieve a user by Auth0 ID
+-- name: GetUserByAuthID :one
+SELECT *
+FROM users
+WHERE auth_id = $1;
+
 
 -- Retrieve a user by email
 -- name: GetUserByEmail :one

@@ -9,7 +9,11 @@ CREATE TABLE IF NOT EXISTS users (
     name VARCHAR(100) NOT NULL,
     email VARCHAR(150) UNIQUE NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    auth_id VARCHAR(255) UNIQUE NOT NULL,
+
+    CONSTRAINT email_key UNIQUE (email),
+    CONSTRAINT auth_id_key UNIQUE (auth_id)
 );
 
 -- Create the todolists table

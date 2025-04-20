@@ -61,19 +61,28 @@ func (u *UserTestSuite) TearDownTest() {
 
 func (u *UserTestSuite) CreateSampleUsers(ctx context.Context, count int) ([]domain.User, error) {
 	var users []domain.User
+
 	for i := 1; i <= count; i++ {
 		name := fmt.Sprintf("Joe %d", i)
 		email := fmt.Sprintf("joe%d@example.com", i)
+
+		// Simulate a mock Auth0 subject string (e.g., "auth0|123abcXYZ")
+		authID := fmt.Sprintf("auth0|mock-id-%d", i)
+
 		newUser := domain.CreateUserParams{
-			Name:  name,
-			Email: email,
+			Name:   name,
+			Email:  email,
+			AuthID: authID,
 		}
+
 		user, err := u.repository.CreateUser(ctx, newUser)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create sample user %d: %w", i, err)
 		}
+
 		users = append(users, user)
 	}
+
 	return users, nil
 }
 
@@ -82,46 +91,65 @@ func (u *UserTestSuite) TestCreateUser() {
 	t := u.T() // Get the testing instance
 
 	t.Run("Create Valid domain.User", func(t *testing.T) {
-		// Arrange - Prepare new user data
 		newUser := domain.CreateUserParams{
-			Name:  "John Doe",
-			Email: "john.doe@example.com",
+			Name:   "John Doe",
+			Email:  "john.doe@example.com",
+			AuthID: "auth0|john-doe",
 		}
 
-		// Act - Create user
 		createdUser, err := u.repository.CreateUser(ctx, newUser)
 
-		// Assert - Validate creation
 		u.Require().NoError(err)
 		u.Require().NotNil(createdUser)
 		u.Equal(newUser.Name, createdUser.Name)
 		u.Equal(newUser.Email, createdUser.Email)
+		u.Equal(newUser.AuthID, createdUser.AuthID)
 
-		// Verify user exists in the database
 		retrievedUser, err := u.repository.GetUserByID(ctx, createdUser.ID)
 		u.Require().NoError(err)
-		u.Require().NotNil(retrievedUser)
-		u.Equal(createdUser.ID, retrievedUser.ID)
-		u.Equal(createdUser.Name, retrievedUser.Name)
-		u.Equal(createdUser.Email, retrievedUser.Email)
+		u.Require().Equal(createdUser.ID, retrievedUser.ID)
 	})
 
 	t.Run("Duplicate Email", func(t *testing.T) {
-		// Arrange - Create first user
-		duplicateUser := domain.CreateUserParams{
-			Name:  "John Smith",
-			Email: "duplicate@example.com",
+		// Arrange
+		original := domain.CreateUserParams{
+			Name:   "Jane Smith",
+			Email:  "jane@example.com",
+			AuthID: "auth0|unique-id-1",
+		}
+		duplicate := domain.CreateUserParams{
+			Name:   "Fake Jane",
+			Email:  "jane@example.com",  // same email
+			AuthID: "auth0|unique-id-2", // different auth ID
 		}
 
-		_, err := u.repository.CreateUser(ctx, duplicateUser)
+		_, err := u.repository.CreateUser(ctx, original)
 		u.Require().NoError(err)
 
-		// Act - Try creating user with the same email
-		_, err = u.repository.CreateUser(ctx, duplicateUser)
-
-		// Assert - Expect our defined unique constraint error
+		_, err = u.repository.CreateUser(ctx, duplicate)
 		u.Require().Error(err)
 		u.ErrorIs(err, ErrEmailAlreadyExists)
+	})
+
+	t.Run("Duplicate AuthID", func(t *testing.T) {
+		// Arrange
+		original := domain.CreateUserParams{
+			Name:   "Bob Marley",
+			Email:  "bob@example.com",
+			AuthID: "auth0|bob-123",
+		}
+		duplicate := domain.CreateUserParams{
+			Name:   "Imposter Bob",
+			Email:  "bob-imposter@example.com", // different email
+			AuthID: "auth0|bob-123",            // same auth ID
+		}
+
+		_, err := u.repository.CreateUser(ctx, original)
+		u.Require().NoError(err)
+
+		_, err = u.repository.CreateUser(ctx, duplicate)
+		u.Require().Error(err)
+		u.ErrorIs(err, ErrAuthIDAlreadyExists)
 	})
 }
 
@@ -146,12 +174,47 @@ func (u *UserTestSuite) TestGetUserByID() {
 		u.Equal(createdUser.ID, retrievedUser.ID)
 		u.Equal(createdUser.Name, retrievedUser.Name)
 		u.Equal(createdUser.Email, retrievedUser.Email)
+		u.Equal(createdUser.AuthID, retrievedUser.AuthID)
 	})
 
 	t.Run("domain.User Not Found", func(t *testing.T) {
 		// Act
 		nonExistentID := uuid.New()
 		_, err := u.repository.GetUserByID(ctx, nonExistentID)
+
+		// Assert
+		u.Require().Error(err)
+		u.ErrorIs(err, common.ErrNotFound)
+	})
+}
+
+// TestGetUserByAuthID validates retrieving a user by Auth0 ID
+func (u *UserTestSuite) TestGetUserByAuthID() {
+	ctx := u.ctx
+	t := u.T()
+
+	t.Run("Valid AuthID", func(t *testing.T) {
+		// Arrange - Create a sample user with mock auth_id
+		users, err := u.CreateSampleUsers(ctx, 1)
+		u.Require().NoError(err)
+		createdUser := users[0]
+
+		// Act
+		retrievedUser, err := u.repository.GetUserByAuthID(ctx, createdUser.AuthID)
+
+		// Assert
+		u.Require().NoError(err)
+		u.Require().NotNil(retrievedUser)
+		u.Equal(createdUser.ID, retrievedUser.ID)
+		u.Equal(createdUser.Name, retrievedUser.Name)
+		u.Equal(createdUser.Email, retrievedUser.Email)
+		u.Equal(createdUser.AuthID, retrievedUser.AuthID)
+	})
+
+	t.Run("AuthID Not Found", func(t *testing.T) {
+		// Act
+		nonExistentAuthID := "auth0|nonexistent-id"
+		_, err := u.repository.GetUserByAuthID(ctx, nonExistentAuthID)
 
 		// Assert
 		u.Require().Error(err)

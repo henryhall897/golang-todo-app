@@ -26,6 +26,9 @@ var _ domain.Service = &ServiceMock{}
 //			DeleteUserFunc: func(ctx context.Context, id uuid.UUID) error {
 //				panic("mock out the DeleteUser method")
 //			},
+//			GetUserByAuthIDFunc: func(ctx context.Context, authID string) (domain.User, error) {
+//				panic("mock out the GetUserByAuthID method")
+//			},
 //			GetUserByEmailFunc: func(ctx context.Context, email string) (domain.User, error) {
 //				panic("mock out the GetUserByEmail method")
 //			},
@@ -50,6 +53,9 @@ type ServiceMock struct {
 
 	// DeleteUserFunc mocks the DeleteUser method.
 	DeleteUserFunc func(ctx context.Context, id uuid.UUID) error
+
+	// GetUserByAuthIDFunc mocks the GetUserByAuthID method.
+	GetUserByAuthIDFunc func(ctx context.Context, authID string) (domain.User, error)
 
 	// GetUserByEmailFunc mocks the GetUserByEmail method.
 	GetUserByEmailFunc func(ctx context.Context, email string) (domain.User, error)
@@ -78,6 +84,13 @@ type ServiceMock struct {
 			Ctx context.Context
 			// ID is the id argument value.
 			ID uuid.UUID
+		}
+		// GetUserByAuthID holds details about calls to the GetUserByAuthID method.
+		GetUserByAuthID []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// AuthID is the authID argument value.
+			AuthID string
 		}
 		// GetUserByEmail holds details about calls to the GetUserByEmail method.
 		GetUserByEmail []struct {
@@ -108,12 +121,13 @@ type ServiceMock struct {
 			Params domain.UpdateUserParams
 		}
 	}
-	lockCreateUser     sync.RWMutex
-	lockDeleteUser     sync.RWMutex
-	lockGetUserByEmail sync.RWMutex
-	lockGetUserByID    sync.RWMutex
-	lockGetUsers       sync.RWMutex
-	lockUpdateUser     sync.RWMutex
+	lockCreateUser      sync.RWMutex
+	lockDeleteUser      sync.RWMutex
+	lockGetUserByAuthID sync.RWMutex
+	lockGetUserByEmail  sync.RWMutex
+	lockGetUserByID     sync.RWMutex
+	lockGetUsers        sync.RWMutex
+	lockUpdateUser      sync.RWMutex
 }
 
 // CreateUser calls CreateUserFunc.
@@ -185,6 +199,42 @@ func (mock *ServiceMock) DeleteUserCalls() []struct {
 	mock.lockDeleteUser.RLock()
 	calls = mock.calls.DeleteUser
 	mock.lockDeleteUser.RUnlock()
+	return calls
+}
+
+// GetUserByAuthID calls GetUserByAuthIDFunc.
+func (mock *ServiceMock) GetUserByAuthID(ctx context.Context, authID string) (domain.User, error) {
+	if mock.GetUserByAuthIDFunc == nil {
+		panic("ServiceMock.GetUserByAuthIDFunc: method is nil but Service.GetUserByAuthID was just called")
+	}
+	callInfo := struct {
+		Ctx    context.Context
+		AuthID string
+	}{
+		Ctx:    ctx,
+		AuthID: authID,
+	}
+	mock.lockGetUserByAuthID.Lock()
+	mock.calls.GetUserByAuthID = append(mock.calls.GetUserByAuthID, callInfo)
+	mock.lockGetUserByAuthID.Unlock()
+	return mock.GetUserByAuthIDFunc(ctx, authID)
+}
+
+// GetUserByAuthIDCalls gets all the calls that were made to GetUserByAuthID.
+// Check the length with:
+//
+//	len(mockedService.GetUserByAuthIDCalls())
+func (mock *ServiceMock) GetUserByAuthIDCalls() []struct {
+	Ctx    context.Context
+	AuthID string
+} {
+	var calls []struct {
+		Ctx    context.Context
+		AuthID string
+	}
+	mock.lockGetUserByAuthID.RLock()
+	calls = mock.calls.GetUserByAuthID
+	mock.lockGetUserByAuthID.RUnlock()
 	return calls
 }
 

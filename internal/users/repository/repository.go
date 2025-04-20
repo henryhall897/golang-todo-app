@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/henryhall897/golang-todo-app/database"
 	"github.com/henryhall897/golang-todo-app/gen/queries/userstore"
 	"github.com/henryhall897/golang-todo-app/internal/core/common"
 	"github.com/henryhall897/golang-todo-app/internal/users/domain"
@@ -30,17 +31,21 @@ func New(pool *pgxpool.Pool) *repository {
 func (r *repository) CreateUser(ctx context.Context, newUser domain.CreateUserParams) (domain.User, error) {
 	// Convert the CreateUserParams to gen.CreateUserParams
 	pgNewUser := createUserParamsToPG(newUser)
-
 	// Execute the query to create a new user
 	user, err := r.query.CreateUser(ctx, pgNewUser)
 	if err != nil {
 		// Check if the error is a unique constraint violation
 		if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.Code == "23505" { // 23505 is PostgreSQL's unique violation error code
-			return domain.User{}, fmt.Errorf("%w", ErrEmailAlreadyExists)
+			if pgErr.ConstraintName == database.Emailkey {
+				return domain.User{}, fmt.Errorf("%w", ErrEmailAlreadyExists)
+			} else if pgErr.ConstraintName == database.AuthIDKey {
+				return domain.User{}, fmt.Errorf("%w", ErrAuthIDAlreadyExists)
+			} else {
+				return domain.User{}, fmt.Errorf("unique constraint violation: %w", err)
+			}
 		}
 		return domain.User{}, fmt.Errorf("failed to create user: %w", err)
 	}
-
 	result, err := pgToUsers(user)
 	if err != nil {
 		return domain.User{}, err
@@ -60,6 +65,25 @@ func (r *repository) GetUserByID(ctx context.Context, id uuid.UUID) (domain.User
 	} else if err != nil {
 		return domain.User{}, fmt.Errorf("user %s: %w", id, common.ErrInternalServerError)
 
+	}
+
+	// Convert the raw database results into the domain.User type
+	result, err := pgToUsers(user)
+	if err != nil {
+		return domain.User{}, err
+	}
+
+	return result, nil
+}
+
+// GetUserByAuthID retrieves a user by their Auth0 ID.
+func (r *repository) GetUserByAuthID(ctx context.Context, authID string) (domain.User, error) {
+	// Execute the query to get the user by Auth0 ID
+	user, err := r.query.GetUserByAuthID(ctx, authID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.User{}, fmt.Errorf("auth_id %s: %w", authID, common.ErrNotFound)
+	} else if err != nil {
+		return domain.User{}, fmt.Errorf("auth_id %s: %w", authID, common.ErrInternalServerError)
 	}
 
 	// Convert the raw database results into the domain.User type
