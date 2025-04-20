@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+spec:
+  limits:
+    - type: PersistentVolumeClaim
+      max:
+        storage: 2Gi
+      min:
+        storage: 512Mi
+      default:
+        storage: 1Gi
+      defaultRequest:
+        storage: 1Gi
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: postgres-pod
+  namespace: postgres-namespace
+spec:
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    fsGroup: 10001
+  containers:
+    - name: postgres
+      image: postgres:13
+      ports:
+        - containerPort: 5432
+      env:
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: golang-todo-secret
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: golang-todo-secret
+              key: POSTGRES_PASSWORD
+        - name: POSTGRES_DB
+          value: "todo"
+      volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+      resources:
+          requests:
+            cpu: "500m"   # 0.5 CPU
+            memory: "1Gi" # 1 GiB
+          limits:
+            cpu: "1"      # 1 CPU
+            memory: "2Gi" # 2 GiB
+          volumeMounts:
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+        readOnlyRootFilesystem: true
+        seccompProfile:
+          type: RuntimeDefault
+  volumes:
+    - name: postgres-storage
+      emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+spec:
+  selector:
+    app: postgres
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432

@@ -1,18 +1,19 @@
-apiVersion: v1
-kind: ConfigMap
+# This is a template ConfigMap. Replace values in production.
+apiVersion: version # Change this to the API version
+kind: kind # Change this to the kind of resource
 metadata:
-  name: golang-todo-config
+  name: name # Change this to the name of the ConfigMap
 data:
-  POSTGRES_HOST: "db" # Change this to the IP address 
-  POSTGRES_PORT: "5432"
-  POSTGRES_DB: "todo"
-  DB_LOGGING_ENABLE: "true"
-  POSTGRES_POOL_MAX_CONN: "10"
-  POSTGRES_POOL_MIN_CONN: "1"
-  POSTGRES_VERSION: "13"
-  APP_VERSION: "1.0.0"
-  LOG_LEVEL: "DEBUG"
-  LOG_MODE: "development"
-  SERVER_BIND_ADDRESS: "0.0.0.0"
-  SERVER_PORT: "8080"
-  CORS_ORIGIN: "*"
+  POSTGRES_HOST: "postgres_host" # Change this to the IP address 
+  POSTGRES_PORT: "postgres_port" # Change this to the port number
+  POSTGRES_DB: "post_gres_db" # Change this to the database name
+  DB_LOGGING_ENABLE: "true/false" # Change this to true or false
+  POSTGRES_POOL_MAX_CONN: "postgres_pool_max_conn" # Change this to the maximum number of connections
+  POSTGRES_POOL_MIN_CONN: "postgres_pool_min_conn" # Change this to the minimum number of connections
+  POSTGRES_VERSION: "postgres_version" # Change this to the version of Postgres
+  APP_VERSION: "app_version" # Change this to the version of the app
+  LOG_LEVEL: "log_level" # Change this to the log level
+  LOG_MODE: "log_mode" # Change this to the log mode
+  SERVER_BIND_ADDRESS: "server_bind_address" # Change this to the server bind address
+  SERVER_PORT: "server_port" # Change this to the server port
+  CORS_ORIGIN: "cors_origin" # Change this to the CORS origin
