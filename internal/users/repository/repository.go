@@ -38,11 +38,8 @@ func (r *repository) CreateUser(ctx context.Context, newUser domain.CreateUserPa
 		if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.Code == "23505" { // 23505 is PostgreSQL's unique violation error code
 			if pgErr.ConstraintName == database.Emailkey {
 				return domain.User{}, fmt.Errorf("%w", ErrEmailAlreadyExists)
-			} else if pgErr.ConstraintName == database.AuthIDKey {
-				return domain.User{}, fmt.Errorf("%w", ErrAuthIDAlreadyExists)
-			} else {
-				return domain.User{}, fmt.Errorf("unique constraint violation: %w", err)
 			}
+			return domain.User{}, fmt.Errorf("unique constraint violation: %w", err)
 		}
 		return domain.User{}, fmt.Errorf("failed to create user: %w", err)
 	}
@@ -76,7 +73,7 @@ func (r *repository) GetUserByID(ctx context.Context, id uuid.UUID) (domain.User
 	return result, nil
 }
 
-// GetUserByAuthID retrieves a user by their Auth0 ID.
+/*// GetUserByAuthID retrieves a user by their Auth0 ID.
 func (r *repository) GetUserByAuthID(ctx context.Context, authID string) (domain.User, error) {
 	// Execute the query to get the user by Auth0 ID
 	user, err := r.query.GetUserByAuthID(ctx, authID)
@@ -93,7 +90,7 @@ func (r *repository) GetUserByAuthID(ctx context.Context, authID string) (domain
 	}
 
 	return result, nil
-}
+}*/
 
 func (r *repository) GetUserByEmail(ctx context.Context, email string) (domain.User, error) {
 	// Execute the query to get the user by email

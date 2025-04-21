@@ -146,7 +146,7 @@ func (s *service) GetUserByEmail(ctx context.Context, email string) (domain.User
 	return user, nil
 }
 
-// GetUserByAuthID retrieves a user by their Auth0 ID, utilizing Redis caching
+/*// GetUserByAuthID retrieves a user by their Auth0 ID, utilizing Redis caching
 func (s *service) GetUserByAuthID(ctx context.Context, authID string) (domain.User, error) {
 	// Attempt to retrieve cached user from Redis
 	if cachedUser, err := s.cache.GetUserByAuthID(ctx, authID); err == nil {
@@ -185,7 +185,7 @@ func (s *service) GetUserByAuthID(ctx context.Context, authID string) (domain.Us
 
 	s.logger.Debugw("User retrieved successfully", "user_id", user.ID, "auth_id", user.AuthID)
 	return user, nil
-}
+}*/
 
 // GetUsers retrieves a list of users with caching
 func (s *service) GetUsers(ctx context.Context, params domain.GetUsersParams) ([]domain.User, error) {

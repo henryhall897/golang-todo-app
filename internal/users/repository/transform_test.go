@@ -47,8 +47,8 @@ func (suite *transformTestSuite) TestPGToUsers() {
 		require.Equal(t, genUser.Email, user.Email)
 		require.NotNil(t, user.CreatedAt)
 		require.NotNil(t, user.UpdatedAt)
-		require.Equal(t, genUser.CreatedAt.Time, *user.CreatedAt)
-		require.Equal(t, genUser.UpdatedAt.Time, *user.UpdatedAt)
+		require.Equal(t, genUser.CreatedAt.Time, user.CreatedAt)
+		require.Equal(t, genUser.UpdatedAt.Time, user.UpdatedAt)
 	})
 
 	// Subtest: Invalid Timestamp
@@ -62,9 +62,12 @@ func (suite *transformTestSuite) TestPGToUsers() {
 		require.Equal(t, uuid.UUID(invalidTimestampUser.ID.Bytes), user.ID)
 		require.Equal(t, invalidTimestampUser.Name, user.Name)
 		require.Equal(t, invalidTimestampUser.Email, user.Email)
-		require.Nil(t, user.CreatedAt, "Expected CreatedAt to be nil")
-		require.Nil(t, user.UpdatedAt, "Expected UpdatedAt to be nil")
+
+		// Updated: check for zero time instead of nil
+		require.Equal(t, time.Time{}, user.CreatedAt, "Expected CreatedAt to be zero time")
+		require.Equal(t, time.Time{}, user.UpdatedAt, "Expected UpdatedAt to be zero time")
 	})
+
 }
 
 func (suite *transformTestSuite) TestToDBUpdateUserParams() {

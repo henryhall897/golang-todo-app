@@ -65,11 +65,11 @@ func toFullTask(dbTask gen.Task) (FullTask, error) {
 		Title:       title,
 		Description: description,
 		Status:      status,
-		DueDate:     dueDate,
+		DueDate:     &dueDate,
 		CreatedAt:   createdAt,
 		UpdatedAt:   updatedAt,
 		Priority:    priority,
-		CompletedAt: completedAt,
+		CompletedAt: &completedAt,
 	}, nil
 }
 

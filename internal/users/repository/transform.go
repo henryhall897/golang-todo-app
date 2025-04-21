@@ -19,7 +19,6 @@ func pgToUsers(users userstore.User) (domain.User, error) {
 		ID:        userID,
 		Name:      users.Name,
 		Email:     users.Email,
-		AuthID:    users.AuthID,
 		CreatedAt: userCreatedAt,
 		UpdatedAt: userUpdatedAt,
 	}, nil
@@ -36,9 +35,8 @@ func getUsersParamsToPG(params domain.GetUsersParams) userstore.GetUsersParams {
 // toPgCreateUserParams converts CreateUserParams to gen.CreateUserParams
 func createUserParamsToPG(params domain.CreateUserParams) userstore.CreateUserParams {
 	return userstore.CreateUserParams{
-		Name:   params.Name,
-		Email:  params.Email,
-		AuthID: params.AuthID,
+		Name:  params.Name,
+		Email: params.Email,
 	}
 }
 

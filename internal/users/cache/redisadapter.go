@@ -32,21 +32,21 @@ func (c *RedisUser) cacheEmailPointer(ctx context.Context, user domain.User) err
 	return c.genericCache.SetPointer(ctx, pointerKey, domain.CacheKeyByID(user.ID), domain.RedisTTL)
 }
 
-// SetAuthIDPointer sets a pointer to a user by Auth0 ID in the cache
+/*// SetAuthIDPointer sets a pointer to a user by Auth0 ID in the cache
 func (c *RedisUser) cacheAuthIDPointer(ctx context.Context, user domain.User) error {
 	pointerKey := domain.CacheKeyByAuthID(user.AuthID)
 	targetKey := domain.CacheKeyByID(user.ID)
 	return c.genericCache.SetPointer(ctx, pointerKey, targetKey, domain.RedisTTL)
-}
+}*/
 
 // CacheUser caches a user by ID, email, and AuthID
 func (c *RedisUser) CacheUser(ctx context.Context, user domain.User) error {
 	if err := c.cacheUserByID(ctx, user); err != nil {
 		return fmt.Errorf("failed to cache user by ID: %w", err)
 	}
-	if err := c.cacheAuthIDPointer(ctx, user); err != nil {
+	/*if err := c.cacheAuthIDPointer(ctx, user); err != nil {
 		return fmt.Errorf("failed to cache all user pointers: %w", err)
-	}
+	}*/
 	if err := c.cacheEmailPointer(ctx, user); err != nil {
 		return fmt.Errorf("failed to cache user by email: %w", err)
 	}
@@ -88,7 +88,7 @@ func (c *RedisUser) GetUserByEmail(ctx context.Context, email string) (domain.Us
 	return c.GetUserByID(ctx, userID)
 }
 
-// GetUserByAuthID resolves the Auth0 ID pointer and returns the full cached user
+/*// GetUserByAuthID resolves the Auth0 ID pointer and returns the full cached user
 func (c *RedisUser) GetUserByAuthID(ctx context.Context, authID string) (domain.User, error) {
 	pointerKey := domain.CacheKeyByAuthID(authID)
 
@@ -106,7 +106,7 @@ func (c *RedisUser) GetUserByAuthID(ctx context.Context, authID string) (domain.
 	}
 
 	return c.GetUserByID(ctx, userID)
-}
+}*/
 
 // GetUserByPagination retrieves a list of users by pagination parameters from the cache
 func (c *RedisUser) GetUserByPagination(ctx context.Context, params domain.GetUsersParams) ([]domain.User, error) {

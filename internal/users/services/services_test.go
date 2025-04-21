@@ -337,7 +337,7 @@ func TestGetUserByEmail(t *testing.T) {
 	})
 }
 
-func TestGetUserByAuthID(t *testing.T) {
+/*func TestGetUserByAuthID(t *testing.T) {
 	suite := SetupSuite() // Load shared setup
 	defer suite.Redis.Server.Close()
 
@@ -417,7 +417,7 @@ func TestGetUserByAuthID(t *testing.T) {
 		assert.True(t, errors.Is(err, common.ErrInternalServerError))
 		assert.Equal(t, domain.User{}, user)
 	})
-}
+}*/
 
 func TestUpdateUser(t *testing.T) {
 	suite := SetupSuite() // Load shared setup
