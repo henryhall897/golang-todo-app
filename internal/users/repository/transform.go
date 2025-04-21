@@ -15,11 +15,11 @@ func pgToUsers(users userstore.User) (domain.User, error) {
 	}
 	userCreatedAt := common.FromPgTimestamp(users.CreatedAt)
 	userUpdatedAt := common.FromPgTimestamp(users.UpdatedAt)
-
 	return domain.User{
 		ID:        userID,
 		Name:      users.Name,
 		Email:     users.Email,
+		AuthID:    users.AuthID,
 		CreatedAt: userCreatedAt,
 		UpdatedAt: userUpdatedAt,
 	}, nil
@@ -36,8 +36,9 @@ func getUsersParamsToPG(params domain.GetUsersParams) userstore.GetUsersParams {
 // toPgCreateUserParams converts CreateUserParams to gen.CreateUserParams
 func createUserParamsToPG(params domain.CreateUserParams) userstore.CreateUserParams {
 	return userstore.CreateUserParams{
-		Name:  params.Name,
-		Email: params.Email,
+		Name:   params.Name,
+		Email:  params.Email,
+		AuthID: params.AuthID,
 	}
 }
 

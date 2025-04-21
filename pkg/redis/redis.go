@@ -69,3 +69,28 @@ func (c *JSONCache) Delete(ctx context.Context, key string) error {
 	}
 	return nil
 }
+
+// SetPointer sets a Redis string pointer from one key to another
+func (c *JSONCache) SetPointer(ctx context.Context, key string, targetKey string, ttl time.Duration) error {
+	namespacedKey := c.prefix + ":" + key
+	if err := c.client.Set(ctx, namespacedKey, targetKey, ttl).Err(); err != nil {
+		c.logger.Errorw("Failed to set pointer in Redis", "key", namespacedKey, "target", targetKey, "error", err)
+		return err
+	}
+	c.logger.Debugw("Pointer set", "key", namespacedKey, "target", targetKey)
+	return nil
+}
+
+// GetPointer retrieves the pointer value (e.g., a UUID string)
+func (c *JSONCache) GetPointer(ctx context.Context, key string) (string, error) {
+	namespacedKey := c.prefix + ":" + key
+	val, err := c.client.Get(ctx, namespacedKey).Result()
+	if err != nil {
+		if err == redis.Nil {
+			return "", nil // cache miss — expected sometimes
+		}
+		c.logger.Warnw("Failed to get pointer from Redis", "key", namespacedKey, "error", err)
+		return "", err
+	}
+	return val, nil
+}

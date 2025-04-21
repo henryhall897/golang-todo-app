@@ -10,6 +10,7 @@ type User struct {
 	ID        uuid.UUID  `json:"id"`
 	Name      string     `json:"name"`
 	Email     string     `json:"email"`
+	AuthID    string     `json:"auth_id"`
 	CreatedAt *time.Time `json:"created_at"`
 	UpdatedAt *time.Time `json:"updated_at"`
 }
@@ -21,8 +22,9 @@ type GetUsersParams struct {
 }
 
 type CreateUserParams struct {
-	Name  string `json:"name"`
-	Email string `json:"email"`
+	Name   string `json:"name"`
+	Email  string `json:"email"`
+	AuthID string `json:"auth_id"`
 }
 
 // UpdateUserParams represents the parameters for updating a user.

@@ -51,12 +51,12 @@ func (s *service) CreateUser(ctx context.Context, params domain.CreateUserParams
 		"name", user.Name,
 	)
 
-	// Store user in Redis with expiration
-	if err := s.cache.CacheUserByID(ctx, user); err != nil {
-		s.logger.Warnw("Failed to store user in Redis by ID", "user_id", user.ID, "error", err)
-	}
-	if err := s.cache.CacheUserByEmail(ctx, user); err != nil {
-		s.logger.Warnw("Failed to store user in Redis by email", "email", user.Email, "error", err)
+	// Attempt to cache the new user in Redis
+	if err := s.cache.CacheUser(ctx, user); err != nil {
+		s.logger.Warnw("Failed to cache user in Redis",
+			"user_id", user.ID,
+			"error", err,
+		)
 	}
 
 	return user, nil
@@ -98,10 +98,92 @@ func (s *service) GetUserByID(ctx context.Context, id uuid.UUID) (domain.User, e
 	s.logger.Debugw("User retrieved successfully", "user_id", user.ID, "name", user.Name)
 
 	// Store retrieved user in cache with an expiration
-	if err := s.cache.CacheUserByID(ctx, user); err != nil {
+	if err := s.cache.CacheUser(ctx, user); err != nil {
 		s.logger.Warnw("Failed to cache user in Redis", "user_id", user.ID, "error", err)
 	}
 
+	return user, nil
+}
+
+// GetUserByEmail retrieves a user by email, utilizing Redis caching
+func (s *service) GetUserByEmail(ctx context.Context, email string) (domain.User, error) {
+	// Attempt to retrieve cached user from Redis
+	if cachedUser, err := s.cache.GetUserByEmail(ctx, email); err == nil {
+		s.logger.Debugw("Cache hit: Retrieved user from Redis",
+			"user_id", cachedUser.ID,
+			"email", cachedUser.Email,
+		)
+		return cachedUser, nil
+	}
+
+	// Fetch user from the database
+	user, err := s.repo.GetUserByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, repository.ErrInvalidDbUserID) || errors.Is(err, repository.ErrFailedToParseUUID) {
+			s.logger.Errorw("GetUserByEmail failed: invalid user data in database",
+				"email", email, "error", err,
+			)
+			return domain.User{}, common.ErrInternalServerError
+		}
+		if errors.Is(err, common.ErrNotFound) {
+			s.logger.Warnw("GetUserByEmail failed: user not found",
+				"email", email, "error", err,
+			)
+			return domain.User{}, common.ErrNotFound
+		}
+		s.logger.Errorw("GetUserByEmail failed: internal server error",
+			"email", email, "error", err,
+		)
+		return domain.User{}, common.ErrInternalServerError
+	}
+
+	// Store the retrieved user in Redis for future lookups
+	if err := s.cache.CacheUser(ctx, user); err != nil {
+		s.logger.Errorw("Failed to store user in Redis", "email", email, "error", err)
+	}
+
+	s.logger.Debugw("User retrieved successfully", "user_id", user.ID, "email", user.Email)
+	return user, nil
+}
+
+// GetUserByAuthID retrieves a user by their Auth0 ID, utilizing Redis caching
+func (s *service) GetUserByAuthID(ctx context.Context, authID string) (domain.User, error) {
+	// Attempt to retrieve cached user from Redis
+	if cachedUser, err := s.cache.GetUserByAuthID(ctx, authID); err == nil {
+		s.logger.Debugw("Cache hit: Retrieved user from Redis via Auth0 ID",
+			"user_id", cachedUser.ID,
+			"auth_id", authID,
+		)
+		return cachedUser, nil
+	}
+
+	// Fetch user from the database
+	user, err := s.repo.GetUserByAuthID(ctx, authID)
+	if err != nil {
+		if errors.Is(err, repository.ErrInvalidDbUserID) || errors.Is(err, repository.ErrFailedToParseUUID) {
+			s.logger.Errorw("GetUserByAuthID failed: invalid user data in database",
+				"auth_id", authID, "error", err,
+			)
+			return domain.User{}, common.ErrInternalServerError
+		}
+		if errors.Is(err, common.ErrNotFound) {
+			s.logger.Warnw("GetUserByAuthID failed: user not found",
+				"auth_id", authID, "error", err,
+			)
+			return domain.User{}, common.ErrNotFound
+		}
+		s.logger.Errorw("GetUserByAuthID failed: internal server error",
+			"auth_id", authID, "error", err,
+		)
+		return domain.User{}, common.ErrInternalServerError
+	}
+
+	// cache to redis Redis
+	if err := s.cache.CacheUser(ctx, user); err != nil {
+		s.logger.Errorw("Failed to store user in Redis", "auth_id", authID, "error", err)
+	}
+
+	s.logger.Debugw("User retrieved successfully", "user_id", user.ID, "auth_id", user.AuthID)
 	return user, nil
 }
 
@@ -146,47 +228,7 @@ func (s *service) GetUsers(ctx context.Context, params domain.GetUsersParams) ([
 	return users, nil
 }
 
-// GetUserByEmail retrieves a user by email, utilizing Redis caching
-func (s *service) GetUserByEmail(ctx context.Context, email string) (domain.User, error) {
-	// Attempt to retrieve cached user from Redis
-	if cachedUser, err := s.cache.GetUserByEmail(ctx, email); err == nil {
-		s.logger.Debugw("Cache hit: Retrieved user from Redis",
-			"user_id", cachedUser.ID,
-			"email", cachedUser.Email,
-		)
-		return cachedUser, nil
-	}
-
-	// Fetch user from the database
-	user, err := s.repo.GetUserByEmail(ctx, email)
-	if err != nil {
-		if errors.Is(err, repository.ErrInvalidDbUserID) || errors.Is(err, repository.ErrFailedToParseUUID) {
-			s.logger.Errorw("GetUserByEmail failed: invalid user data in database",
-				"email", email, "error", err,
-			)
-			return domain.User{}, common.ErrInternalServerError
-		}
-		if errors.Is(err, common.ErrNotFound) {
-			s.logger.Warnw("GetUserByEmail failed: user not found",
-				"email", email, "error", err,
-			)
-			return domain.User{}, common.ErrNotFound
-		}
-		s.logger.Errorw("GetUserByEmail failed: internal server error",
-			"email", email, "error", err,
-		)
-		return domain.User{}, common.ErrInternalServerError
-	}
-
-	// Store the retrieved user in Redis for future lookups
-	if err := s.cache.CacheUserByEmail(ctx, user); err != nil {
-		s.logger.Errorw("Failed to store user in Redis", "email", email, "error", err)
-	}
-
-	s.logger.Debugw("User retrieved successfully", "user_id", user.ID, "email", user.Email)
-	return user, nil
-}
-
+// TODO - Implement AUTH0 update
 // UpdateUser updates an existing user's details and refreshes cache
 func (s *service) UpdateUser(ctx context.Context, params domain.UpdateUserParams) (domain.User, error) {
 	// Clear out old cache entries
@@ -208,7 +250,7 @@ func (s *service) UpdateUser(ctx context.Context, params domain.UpdateUserParams
 	}
 
 	// Store updated user in Redis
-	if err := s.cache.CacheUserByID(ctx, user); err != nil {
+	if err := s.cache.CacheUser(ctx, user); err != nil {
 		s.logger.Warnw("Failed to store updated user in Redis", "user_id", user.ID, "error", err)
 	}
 
@@ -219,6 +261,7 @@ func (s *service) UpdateUser(ctx context.Context, params domain.UpdateUserParams
 	return user, nil
 }
 
+// TODO - Implement AUTH0 deletion
 // DeleteUser deletes a user by ID
 func (s *service) DeleteUser(ctx context.Context, id uuid.UUID) error {
 	// Clear out old cache entries

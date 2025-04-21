@@ -20,3 +20,8 @@ func CacheKeyByEmail(email string) string {
 func CacheKeyByPagination(limit, offset int) string {
 	return fmt.Sprintf("page:limit=%d:offset=%d", limit, offset)
 }
+
+// CacheKeyByAuthID generates a cache key for a user by their AuthID.
+func CacheKeyByAuthID(authID string) string {
+	return fmt.Sprintf("%s:%s", RedisAuthIDPrefix, authID)
+}

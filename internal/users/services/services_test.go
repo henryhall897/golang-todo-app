@@ -337,6 +337,88 @@ func TestGetUserByEmail(t *testing.T) {
 	})
 }
 
+func TestGetUserByAuthID(t *testing.T) {
+	suite := SetupSuite() // Load shared setup
+	defer suite.Redis.Server.Close()
+
+	// Define common test data
+	testUsers := testutils.GenerateMockUsers(1)
+	testUser := testUsers[0]
+	testAuthID := testUser.AuthID
+
+	t.Run("success - user found", func(t *testing.T) {
+		suite.Redis.Server.FlushAll() // Clear Redis to test repo fallback
+
+		// Mock repository to return valid user
+		suite.mockRepo.GetUserByAuthIDFunc = func(ctx context.Context, authID string) (domain.User, error) {
+			return testUser, nil
+		}
+
+		// Call the service method
+		user, err := suite.Service.GetUserByAuthID(suite.ctx, testAuthID)
+
+		// Assertions
+		require.NoError(t, err)
+		assert.Equal(t, testUser, user)
+	})
+
+	t.Run("failure - user not found", func(t *testing.T) {
+		suite.Redis.Server.FlushAll()
+
+		suite.mockRepo.GetUserByAuthIDFunc = func(ctx context.Context, authID string) (domain.User, error) {
+			return domain.User{}, common.ErrNotFound
+		}
+
+		user, err := suite.Service.GetUserByAuthID(suite.ctx, testAuthID)
+
+		require.Error(t, err)
+		assert.True(t, errors.Is(err, common.ErrNotFound))
+		assert.Equal(t, domain.User{}, user)
+	})
+
+	t.Run("failure - invalid user ID", func(t *testing.T) {
+		suite.Redis.Server.FlushAll()
+
+		suite.mockRepo.GetUserByAuthIDFunc = func(ctx context.Context, authID string) (domain.User, error) {
+			return domain.User{}, repository.ErrInvalidDbUserID
+		}
+
+		user, err := suite.Service.GetUserByAuthID(suite.ctx, testAuthID)
+
+		require.Error(t, err)
+		assert.True(t, errors.Is(err, common.ErrInternalServerError))
+		assert.Equal(t, domain.User{}, user)
+	})
+
+	t.Run("failure - failed to parse UUID", func(t *testing.T) {
+		suite.Redis.Server.FlushAll()
+
+		suite.mockRepo.GetUserByAuthIDFunc = func(ctx context.Context, authID string) (domain.User, error) {
+			return domain.User{}, repository.ErrFailedToParseUUID
+		}
+
+		user, err := suite.Service.GetUserByAuthID(suite.ctx, testAuthID)
+
+		require.Error(t, err)
+		assert.True(t, errors.Is(err, common.ErrInternalServerError))
+		assert.Equal(t, domain.User{}, user)
+	})
+
+	t.Run("failure - unexpected error", func(t *testing.T) {
+		suite.Redis.Server.FlushAll()
+
+		suite.mockRepo.GetUserByAuthIDFunc = func(ctx context.Context, authID string) (domain.User, error) {
+			return domain.User{}, errors.New("database timeout")
+		}
+
+		user, err := suite.Service.GetUserByAuthID(suite.ctx, testAuthID)
+
+		require.Error(t, err)
+		assert.True(t, errors.Is(err, common.ErrInternalServerError))
+		assert.Equal(t, domain.User{}, user)
+	})
+}
+
 func TestUpdateUser(t *testing.T) {
 	suite := SetupSuite() // Load shared setup
 	defer suite.Redis.Server.Close()

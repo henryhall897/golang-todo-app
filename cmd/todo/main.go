@@ -16,6 +16,7 @@ import (
 	"github.com/henryhall897/golang-todo-app/database"
 	"github.com/henryhall897/golang-todo-app/internal/config"
 	"github.com/henryhall897/golang-todo-app/internal/core/logging"
+	"github.com/henryhall897/golang-todo-app/internal/middleware"
 	"github.com/henryhall897/golang-todo-app/internal/router"
 	"github.com/henryhall897/golang-todo-app/internal/server"
 
@@ -148,7 +149,10 @@ func run(ctx context.Context, logger *zap.SugaredLogger, cfg *config.AppConfig) 
 	// Initialize the router
 	rt := router.NewRouter(routeFuncs, []userhandlers.Handler{*userHandler})
 
-	// Add more route modules here (e.g., tasks, lists)
+	// TODO - Add more route modules here (e.g., tasks, lists)
+
+	// Apply CORS middleware to router
+	corsWrappedHandler := middleware.CORS(cfg.Server.CorsOrigin)(rt.LimitedHandler)
 
 	// Start the HTTP server
 	srv := server.NewHTTPServer(&config.ServerConfig{
@@ -156,5 +160,5 @@ func run(ctx context.Context, logger *zap.SugaredLogger, cfg *config.AppConfig) 
 		Port:        cfg.Server.Port,
 		Logger:      logger,
 	})
-	return srv.Serve(ctx, rt.LimitedHandler)
+	return srv.Serve(ctx, corsWrappedHandler)
 }

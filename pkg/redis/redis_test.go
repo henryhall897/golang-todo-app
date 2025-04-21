@@ -112,3 +112,35 @@ func TestJSONCache_Behavior(t *testing.T) {
 		assert.False(t, suite.Server.Exists(fullKey), "Key should be removed after deletion")
 	})
 }
+
+func TestJSONCache_PointerBehavior(t *testing.T) {
+	suite := SetupSuite()
+	defer suite.Server.Close()
+
+	ctx := context.Background()
+
+	t.Run("SetPointer and GetPointer - success", func(t *testing.T) {
+		pointerKey := "email:user@example.com"
+		targetID := "user-1234"
+
+		// Act: set the pointer
+		err := suite.Cache.SetPointer(ctx, pointerKey, targetID, time.Minute)
+		require.NoError(t, err, "Failed to set pointer")
+
+		// Validate it directly in Redis
+		stored, err := suite.Server.Get("test:" + pointerKey)
+		require.NoError(t, err)
+		assert.Equal(t, targetID, stored, "Stored pointer value mismatch")
+
+		// Act: get the pointer using cache method
+		retrievedID, err := suite.Cache.GetPointer(ctx, pointerKey)
+		require.NoError(t, err)
+		assert.Equal(t, targetID, retrievedID, "Pointer target mismatch")
+	})
+
+	t.Run("GetPointer - key does not exist", func(t *testing.T) {
+		retrievedID, err := suite.Cache.GetPointer(ctx, "nonexistent-pointer")
+		assert.NoError(t, err, "Expected no error when pointer key does not exist")
+		assert.Equal(t, "", retrievedID, "Expected empty string for nonexistent pointer")
+	})
+}

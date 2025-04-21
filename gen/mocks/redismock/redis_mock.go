@@ -26,8 +26,14 @@ var _ redis.Cache = &CacheMock{}
 //			GetFunc: func(ctx context.Context, key string, dest interface{}) error {
 //				panic("mock out the Get method")
 //			},
+//			GetPointerFunc: func(ctx context.Context, key string) (string, error) {
+//				panic("mock out the GetPointer method")
+//			},
 //			SetFunc: func(ctx context.Context, key string, value interface{}, ttl time.Duration) error {
 //				panic("mock out the Set method")
+//			},
+//			SetPointerFunc: func(ctx context.Context, key string, targetKey string, ttl time.Duration) error {
+//				panic("mock out the SetPointer method")
 //			},
 //		}
 //
@@ -42,8 +48,14 @@ type CacheMock struct {
 	// GetFunc mocks the Get method.
 	GetFunc func(ctx context.Context, key string, dest interface{}) error
 
+	// GetPointerFunc mocks the GetPointer method.
+	GetPointerFunc func(ctx context.Context, key string) (string, error)
+
 	// SetFunc mocks the Set method.
 	SetFunc func(ctx context.Context, key string, value interface{}, ttl time.Duration) error
+
+	// SetPointerFunc mocks the SetPointer method.
+	SetPointerFunc func(ctx context.Context, key string, targetKey string, ttl time.Duration) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -63,6 +75,13 @@ type CacheMock struct {
 			// Dest is the dest argument value.
 			Dest interface{}
 		}
+		// GetPointer holds details about calls to the GetPointer method.
+		GetPointer []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Key is the key argument value.
+			Key string
+		}
 		// Set holds details about calls to the Set method.
 		Set []struct {
 			// Ctx is the ctx argument value.
@@ -74,10 +93,23 @@ type CacheMock struct {
 			// TTL is the ttl argument value.
 			TTL time.Duration
 		}
+		// SetPointer holds details about calls to the SetPointer method.
+		SetPointer []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Key is the key argument value.
+			Key string
+			// TargetKey is the targetKey argument value.
+			TargetKey string
+			// TTL is the ttl argument value.
+			TTL time.Duration
+		}
 	}
-	lockDelete sync.RWMutex
-	lockGet    sync.RWMutex
-	lockSet    sync.RWMutex
+	lockDelete     sync.RWMutex
+	lockGet        sync.RWMutex
+	lockGetPointer sync.RWMutex
+	lockSet        sync.RWMutex
+	lockSetPointer sync.RWMutex
 }
 
 // Delete calls DeleteFunc.
@@ -156,6 +188,42 @@ func (mock *CacheMock) GetCalls() []struct {
 	return calls
 }
 
+// GetPointer calls GetPointerFunc.
+func (mock *CacheMock) GetPointer(ctx context.Context, key string) (string, error) {
+	if mock.GetPointerFunc == nil {
+		panic("CacheMock.GetPointerFunc: method is nil but Cache.GetPointer was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		Key string
+	}{
+		Ctx: ctx,
+		Key: key,
+	}
+	mock.lockGetPointer.Lock()
+	mock.calls.GetPointer = append(mock.calls.GetPointer, callInfo)
+	mock.lockGetPointer.Unlock()
+	return mock.GetPointerFunc(ctx, key)
+}
+
+// GetPointerCalls gets all the calls that were made to GetPointer.
+// Check the length with:
+//
+//	len(mockedCache.GetPointerCalls())
+func (mock *CacheMock) GetPointerCalls() []struct {
+	Ctx context.Context
+	Key string
+} {
+	var calls []struct {
+		Ctx context.Context
+		Key string
+	}
+	mock.lockGetPointer.RLock()
+	calls = mock.calls.GetPointer
+	mock.lockGetPointer.RUnlock()
+	return calls
+}
+
 // Set calls SetFunc.
 func (mock *CacheMock) Set(ctx context.Context, key string, value interface{}, ttl time.Duration) error {
 	if mock.SetFunc == nil {
@@ -197,5 +265,49 @@ func (mock *CacheMock) SetCalls() []struct {
 	mock.lockSet.RLock()
 	calls = mock.calls.Set
 	mock.lockSet.RUnlock()
+	return calls
+}
+
+// SetPointer calls SetPointerFunc.
+func (mock *CacheMock) SetPointer(ctx context.Context, key string, targetKey string, ttl time.Duration) error {
+	if mock.SetPointerFunc == nil {
+		panic("CacheMock.SetPointerFunc: method is nil but Cache.SetPointer was just called")
+	}
+	callInfo := struct {
+		Ctx       context.Context
+		Key       string
+		TargetKey string
+		TTL       time.Duration
+	}{
+		Ctx:       ctx,
+		Key:       key,
+		TargetKey: targetKey,
+		TTL:       ttl,
+	}
+	mock.lockSetPointer.Lock()
+	mock.calls.SetPointer = append(mock.calls.SetPointer, callInfo)
+	mock.lockSetPointer.Unlock()
+	return mock.SetPointerFunc(ctx, key, targetKey, ttl)
+}
+
+// SetPointerCalls gets all the calls that were made to SetPointer.
+// Check the length with:
+//
+//	len(mockedCache.SetPointerCalls())
+func (mock *CacheMock) SetPointerCalls() []struct {
+	Ctx       context.Context
+	Key       string
+	TargetKey string
+	TTL       time.Duration
+} {
+	var calls []struct {
+		Ctx       context.Context
+		Key       string
+		TargetKey string
+		TTL       time.Duration
+	}
+	mock.lockSetPointer.RLock()
+	calls = mock.calls.SetPointer
+	mock.lockSetPointer.RUnlock()
 	return calls
 }

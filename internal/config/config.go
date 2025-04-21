@@ -19,6 +19,7 @@ type DatabaseConfig struct {
 type ServerConfig struct {
 	BindAddress string `env:"BIND_ADDRESS,default=0.0.0.0"`
 	Port        string `env:"PORT,default=8080"`
+	CorsOrigin  string `env:"CORS_ORIGIN,required"`
 	Logger      *zap.SugaredLogger
 }
 
