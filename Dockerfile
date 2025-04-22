@@ -29,6 +29,9 @@ WORKDIR /app
 # Copy the statically linked binary from the builder stage
 COPY --from=builder /app/todo .
 
+# Set the default shell to bash
+SHELL ["/bin/bash", "-c"]
+
 # Explicitly disable Docker health checks
 HEALTHCHECK NONE
 

@@ -40,7 +40,7 @@ func (Docker) BuildWSL() error {
 func (Docker) BuildPi() error {
 	version := getVersion()
 
-	// Retrieve the Docker Hub username from the Kubernetes Secret
+	// Retrieve the Docker Hub username from Kubernetes Secret
 	cmd := exec.Command("kubectl", "get", "secret", "golang-todo-secret", "-o", "jsonpath={.data.DOCKER_HUB_USERNAME}")
 	output, err := cmd.Output()
 	if err != nil {
@@ -62,63 +62,36 @@ func (Docker) BuildPi() error {
 	imageName := "golang-todo-app-pi"
 	fullImageName := fmt.Sprintf("docker.io/%s/%s", dockerHubUsername, imageName)
 
-	fmt.Printf("Building Docker image %s:%s for Raspberry Pi...\n", fullImageName, version)
+	// Logging
+	fmt.Printf("Building Docker image: %s:%s\n", fullImageName, version)
+	fmt.Println("Clearing Docker cache...")
 
-	// Build the versioned image
+	// Ensure old image layers are fully cleared
+	err = sh.RunV("docker", "system", "prune", "-af")
+	if err != nil {
+		return fmt.Errorf("failed to prune Docker cache: %v", err)
+	}
+
+	// Build the versioned image & push directly
+	fmt.Println("Building and pushing new image...")
 	err = sh.RunV("docker", "buildx", "build",
-		"--build-arg", "GOOS=linux",
-		"--build-arg", "GOARCH=arm64",
+		"--no-cache",
+		"--pull", // Ensure latest base image is used
+		"--push", // Push directly to Docker Hub
+		"--platform", "linux/arm64",
 		"-t", fmt.Sprintf("%s:%s", fullImageName, version), ".")
 	if err != nil {
-		return fmt.Errorf("failed to build image: %v", err)
+		return fmt.Errorf("failed to build and push image: %v", err)
 	}
 
-	// Tag the image as latest
-	fmt.Println("Tagging image with latest...")
-	err = sh.RunV("docker", "tag",
-		fmt.Sprintf("%s:%s", fullImageName, version),
-		fmt.Sprintf("%s:latest", fullImageName))
-	if err != nil {
-		return fmt.Errorf("failed to tag image: %v", err)
-	}
+	fmt.Println("Successfully built and pushed:", fullImageName, version)
 
-	// Push the versioned and latest tags to Docker Hub
-	fmt.Println("Pushing image to Docker Hub...")
-	err = sh.RunV("docker", "push", fmt.Sprintf("%s:%s", fullImageName, version))
-	if err != nil {
-		return fmt.Errorf("failed to push versioned image: %v", err)
-	}
-
-	err = sh.RunV("docker", "push", fmt.Sprintf("%s:latest", fullImageName))
-	if err != nil {
-		return fmt.Errorf("failed to push latest image: %v", err)
-	}
-
-	fmt.Println("Image built successfully and pushed to Docker Hub.")
 	return nil
-}
-
-// Run runs the application container along with the database using Docker Compose.
-func (Docker) Run() error {
-	fmt.Println("Starting Docker containers with Docker Compose...")
-	return sh.RunV("docker-compose", "up", "--build", "-d")
-}
-
-// Stop stops and removes the Docker containers.
-func (Docker) Stop() error {
-	fmt.Println("Stopping and removing Docker containers...")
-	return sh.RunV("docker-compose", "down")
-}
-
-// Logs displays logs from the application container.
-func (Docker) Logs() error {
-	fmt.Println("Displaying logs from the application container...")
-	return sh.RunV("docker", "logs", "-f", "golang-todo-app")
 }
 
 // getVersion gets the version from an environment variable or defaults to "latest"
 func getVersion() string {
-	version := os.Getenv("VERSION")
+	version := os.Getenv("APP_VERSION")
 	if version == "" {
 		version = "latest"
 	}
