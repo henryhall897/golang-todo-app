@@ -7,12 +7,11 @@ import (
 )
 
 type User struct {
-	ID        uuid.UUID  `json:"id"`
-	Name      string     `json:"name"`
-	Email     string     `json:"email"`
-	AuthID    string     `json:"auth_id"`
-	CreatedAt *time.Time `json:"created_at"`
-	UpdatedAt *time.Time `json:"updated_at"`
+	ID        uuid.UUID `json:"id"`
+	Name      string    `json:"name"`
+	Email     string    `json:"email"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // GetUsersParams defines the parameters for listing users.
@@ -22,9 +21,8 @@ type GetUsersParams struct {
 }
 
 type CreateUserParams struct {
-	Name   string `json:"name"`
-	Email  string `json:"email"`
-	AuthID string `json:"auth_id"`
+	Name  string `json:"name"`
+	Email string `json:"email"`
 }
 
 // UpdateUserParams represents the parameters for updating a user.

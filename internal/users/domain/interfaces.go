@@ -12,7 +12,6 @@ import (
 type Repository interface {
 	CreateUser(ctx context.Context, newUserParams CreateUserParams) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
-	GetUserByAuthID(ctx context.Context, authID string) (User, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUsers(ctx context.Context, params GetUsersParams) ([]User, error)
 	UpdateUser(ctx context.Context, updateUserparams UpdateUserParams) (User, error)
@@ -24,7 +23,6 @@ type Service interface {
 	CreateUser(ctx context.Context, params CreateUserParams) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
-	GetUserByAuthID(ctx context.Context, authID string) (User, error)
 	GetUsers(ctx context.Context, params GetUsersParams) ([]User, error)
 	UpdateUser(ctx context.Context, params UpdateUserParams) (User, error)
 	DeleteUser(ctx context.Context, id uuid.UUID) error
@@ -40,7 +38,6 @@ type Cache interface {
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByPagination(ctx context.Context, params GetUsersParams) ([]User, error)
-	GetUserByAuthID(ctx context.Context, authID string) (User, error)
 
 	// Deleters
 	DeleteUserByID(ctx context.Context, id uuid.UUID) error

@@ -227,7 +227,7 @@ func TestFromPgTimestamptz(t *testing.T) {
 
 		// Assert: Verify the result
 		require.NotNil(t, result)
-		require.Equal(t, validTime, *result)
+		require.Equal(t, validTime, result)
 	})
 
 	// Test case when pgtype.Timestamptz is invalid

@@ -97,9 +97,8 @@ func TestCreateUser_Cache(t *testing.T) {
 
 		// Call service method (should create user and store in Redis)
 		_, err := suite.Service.CreateUser(suite.ctx, domain.CreateUserParams{
-			Name:   testUser.Name,
-			Email:  testUser.Email,
-			AuthID: testUser.AuthID,
+			Name:  testUser.Name,
+			Email: testUser.Email,
 		})
 		require.NoError(t, err)
 		fmt.Printf("Current Redis keys:\n")
@@ -130,16 +129,6 @@ func TestCreateUser_Cache(t *testing.T) {
 		parsedEmailUUID, err := uuid.Parse(emailPointerValue)
 		require.NoError(t, err, "Email pointer is not a valid UUID")
 		assert.Equal(t, testUser.ID, parsedEmailUUID, "Email pointer should match user ID")
-
-		// Check auth_id pointer exists and points to correct ID
-		authIDPointerKey := domain.CacheKeyByAuthID(testUser.AuthID)
-		cacheKeyByAuthID := RedisFullKey(authIDPointerKey)
-
-		authPointerValue, err := suite.Redis.Server.Get(cacheKeyByAuthID)
-		require.NoError(t, err, "Expected Redis to contain the auth_id pointer")
-		parsedAuthUUID, err := uuid.Parse(authPointerValue)
-		require.NoError(t, err, "AuthID pointer is not a valid UUID")
-		assert.Equal(t, testUser.ID, parsedAuthUUID, "AuthID pointer should match user ID")
 
 	})
 
@@ -197,8 +186,8 @@ func TestGetUserByID_Cache(t *testing.T) {
 		assert.Equal(t, testUser.ID, cachedUser.ID)
 		assert.Equal(t, testUser.Name, cachedUser.Name)
 		assert.Equal(t, testUser.Email, cachedUser.Email)
-		assert.WithinDuration(t, *testUser.CreatedAt, *cachedUser.CreatedAt, time.Millisecond)
-		assert.WithinDuration(t, *testUser.UpdatedAt, *cachedUser.UpdatedAt, time.Millisecond)
+		assert.WithinDuration(t, testUser.CreatedAt, cachedUser.CreatedAt, time.Millisecond)
+		assert.WithinDuration(t, testUser.UpdatedAt, cachedUser.UpdatedAt, time.Millisecond)
 	})
 
 	t.Run("success - cache hit", func(t *testing.T) {
@@ -214,8 +203,8 @@ func TestGetUserByID_Cache(t *testing.T) {
 		assert.Equal(t, testUser.ID, user.ID)
 		assert.Equal(t, testUser.Name, user.Name)
 		assert.Equal(t, testUser.Email, user.Email)
-		assert.WithinDuration(t, *testUser.CreatedAt, *user.CreatedAt, time.Millisecond)
-		assert.WithinDuration(t, *testUser.UpdatedAt, *user.UpdatedAt, time.Millisecond)
+		assert.WithinDuration(t, testUser.CreatedAt, user.CreatedAt, time.Millisecond)
+		assert.WithinDuration(t, testUser.UpdatedAt, user.UpdatedAt, time.Millisecond)
 	})
 
 	t.Run("failure - Redis error, fallback to DB", func(t *testing.T) {
@@ -235,8 +224,8 @@ func TestGetUserByID_Cache(t *testing.T) {
 		assert.Equal(t, testUser.ID, user.ID)
 		assert.Equal(t, testUser.Name, user.Name)
 		assert.Equal(t, testUser.Email, user.Email)
-		assert.WithinDuration(t, *testUser.CreatedAt, *user.CreatedAt, time.Millisecond)
-		assert.WithinDuration(t, *testUser.UpdatedAt, *user.UpdatedAt, time.Millisecond)
+		assert.WithinDuration(t, testUser.CreatedAt, user.CreatedAt, time.Millisecond)
+		assert.WithinDuration(t, testUser.UpdatedAt, user.UpdatedAt, time.Millisecond)
 	})
 }
 
@@ -278,8 +267,8 @@ func TestGetUsers_Cache(t *testing.T) {
 			assert.Equal(t, mockUsers[i].ID, user.ID)
 			assert.Equal(t, mockUsers[i].Name, user.Name)
 			assert.Equal(t, mockUsers[i].Email, user.Email)
-			assert.WithinDuration(t, *mockUsers[i].CreatedAt, *user.CreatedAt, time.Millisecond)
-			assert.WithinDuration(t, *mockUsers[i].UpdatedAt, *user.UpdatedAt, time.Millisecond)
+			assert.WithinDuration(t, mockUsers[i].CreatedAt, user.CreatedAt, time.Millisecond)
+			assert.WithinDuration(t, mockUsers[i].UpdatedAt, user.UpdatedAt, time.Millisecond)
 		}
 	})
 
@@ -298,8 +287,8 @@ func TestGetUsers_Cache(t *testing.T) {
 			assert.Equal(t, mockUsers[i].ID, user.ID)
 			assert.Equal(t, mockUsers[i].Name, user.Name)
 			assert.Equal(t, mockUsers[i].Email, user.Email)
-			assert.WithinDuration(t, *mockUsers[i].CreatedAt, *user.CreatedAt, time.Millisecond)
-			assert.WithinDuration(t, *mockUsers[i].UpdatedAt, *user.UpdatedAt, time.Millisecond)
+			assert.WithinDuration(t, mockUsers[i].CreatedAt, user.CreatedAt, time.Millisecond)
+			assert.WithinDuration(t, mockUsers[i].UpdatedAt, user.UpdatedAt, time.Millisecond)
 		}
 	})
 
@@ -322,8 +311,8 @@ func TestGetUsers_Cache(t *testing.T) {
 			assert.Equal(t, mockUsers[i].ID, user.ID)
 			assert.Equal(t, mockUsers[i].Name, user.Name)
 			assert.Equal(t, mockUsers[i].Email, user.Email)
-			assert.WithinDuration(t, *mockUsers[i].CreatedAt, *user.CreatedAt, time.Millisecond)
-			assert.WithinDuration(t, *mockUsers[i].UpdatedAt, *user.UpdatedAt, time.Millisecond)
+			assert.WithinDuration(t, mockUsers[i].CreatedAt, user.CreatedAt, time.Millisecond)
+			assert.WithinDuration(t, mockUsers[i].UpdatedAt, user.UpdatedAt, time.Millisecond)
 		}
 	})
 }
@@ -365,8 +354,8 @@ func TestGetUserByEmail_Cache(t *testing.T) {
 		assert.Equal(t, testUser.ID, cachedUser.ID)
 		assert.Equal(t, testUser.Name, cachedUser.Name)
 		assert.Equal(t, testUser.Email, cachedUser.Email)
-		assert.WithinDuration(t, *testUser.CreatedAt, *cachedUser.CreatedAt, time.Millisecond)
-		assert.WithinDuration(t, *testUser.UpdatedAt, *cachedUser.UpdatedAt, time.Millisecond)
+		assert.WithinDuration(t, testUser.CreatedAt, cachedUser.CreatedAt, time.Millisecond)
+		assert.WithinDuration(t, testUser.UpdatedAt, cachedUser.UpdatedAt, time.Millisecond)
 	})
 
 	t.Run("success - cache hit", func(t *testing.T) {
@@ -382,8 +371,8 @@ func TestGetUserByEmail_Cache(t *testing.T) {
 		assert.Equal(t, testUser.ID, user.ID)
 		assert.Equal(t, testUser.Name, user.Name)
 		assert.Equal(t, testUser.Email, user.Email)
-		assert.WithinDuration(t, *testUser.CreatedAt, *user.CreatedAt, time.Millisecond)
-		assert.WithinDuration(t, *testUser.UpdatedAt, *user.UpdatedAt, time.Millisecond)
+		assert.WithinDuration(t, testUser.CreatedAt, user.CreatedAt, time.Millisecond)
+		assert.WithinDuration(t, testUser.UpdatedAt, user.UpdatedAt, time.Millisecond)
 	})
 
 	t.Run("failure - Redis error, fallback to DB", func(t *testing.T) {
@@ -403,11 +392,12 @@ func TestGetUserByEmail_Cache(t *testing.T) {
 		assert.Equal(t, testUser.ID, user.ID)
 		assert.Equal(t, testUser.Name, user.Name)
 		assert.Equal(t, testUser.Email, user.Email)
-		assert.WithinDuration(t, *testUser.CreatedAt, *user.CreatedAt, time.Millisecond)
-		assert.WithinDuration(t, *testUser.UpdatedAt, *user.UpdatedAt, time.Millisecond)
+		assert.WithinDuration(t, testUser.CreatedAt, user.CreatedAt, time.Millisecond)
+		assert.WithinDuration(t, testUser.UpdatedAt, user.UpdatedAt, time.Millisecond)
 	})
 }
 
+/*
 func TestGetUserByAuthID_Cache(t *testing.T) {
 	suite := SetupSuite()
 	defer suite.Redis.Server.Close()
@@ -487,7 +477,7 @@ func TestGetUserByAuthID_Cache(t *testing.T) {
 		assert.WithinDuration(t, *testUser.CreatedAt, *user.CreatedAt, time.Millisecond)
 		assert.WithinDuration(t, *testUser.UpdatedAt, *user.UpdatedAt, time.Millisecond)
 	})
-}
+}*/
 
 func TestUpdateUser_Cache(t *testing.T) {
 	suite := SetupSuite()            // Load shared test setup
@@ -555,8 +545,8 @@ func TestUpdateUser_Cache(t *testing.T) {
 		assert.Equal(t, updatedUser.ID, cachedUser.ID)       // ID should remain the same
 		assert.Equal(t, updatedUser.Name, cachedUser.Name)   // Name should be updated
 		assert.Equal(t, updatedUser.Email, cachedUser.Email) // Email should be updated
-		assert.WithinDuration(t, *updatedUser.CreatedAt, *cachedUser.CreatedAt, time.Millisecond)
-		assert.WithinDuration(t, *updatedUser.UpdatedAt, *cachedUser.UpdatedAt, time.Millisecond)
+		assert.WithinDuration(t, updatedUser.CreatedAt, cachedUser.CreatedAt, time.Millisecond)
+		assert.WithinDuration(t, updatedUser.UpdatedAt, cachedUser.UpdatedAt, time.Millisecond)
 	})
 
 	t.Run("failure - Redis error, still updates DB", func(t *testing.T) {
@@ -579,7 +569,7 @@ func TestUpdateUser_Cache(t *testing.T) {
 		assert.Equal(t, updatedUser.ID, user.ID)
 		assert.Equal(t, updatedUser.Name, user.Name)
 		assert.Equal(t, updatedUser.Email, user.Email)
-		assert.WithinDuration(t, *updatedUser.CreatedAt, *user.CreatedAt, time.Millisecond)
-		assert.WithinDuration(t, *updatedUser.UpdatedAt, *user.UpdatedAt, time.Millisecond)
+		assert.WithinDuration(t, updatedUser.CreatedAt, user.CreatedAt, time.Millisecond)
+		assert.WithinDuration(t, updatedUser.UpdatedAt, user.UpdatedAt, time.Millisecond)
 	})
 }

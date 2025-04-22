@@ -32,9 +32,6 @@ var _ domain.Cache = &CacheMock{}
 //			DeleteUserByIDFunc: func(ctx context.Context, id uuid.UUID) error {
 //				panic("mock out the DeleteUserByID method")
 //			},
-//			GetUserByAuthIDFunc: func(ctx context.Context, authID string) (domain.User, error) {
-//				panic("mock out the GetUserByAuthID method")
-//			},
 //			GetUserByEmailFunc: func(ctx context.Context, email string) (domain.User, error) {
 //				panic("mock out the GetUserByEmail method")
 //			},
@@ -62,9 +59,6 @@ type CacheMock struct {
 
 	// DeleteUserByIDFunc mocks the DeleteUserByID method.
 	DeleteUserByIDFunc func(ctx context.Context, id uuid.UUID) error
-
-	// GetUserByAuthIDFunc mocks the GetUserByAuthID method.
-	GetUserByAuthIDFunc func(ctx context.Context, authID string) (domain.User, error)
 
 	// GetUserByEmailFunc mocks the GetUserByEmail method.
 	GetUserByEmailFunc func(ctx context.Context, email string) (domain.User, error)
@@ -107,13 +101,6 @@ type CacheMock struct {
 			// ID is the id argument value.
 			ID uuid.UUID
 		}
-		// GetUserByAuthID holds details about calls to the GetUserByAuthID method.
-		GetUserByAuthID []struct {
-			// Ctx is the ctx argument value.
-			Ctx context.Context
-			// AuthID is the authID argument value.
-			AuthID string
-		}
 		// GetUserByEmail holds details about calls to the GetUserByEmail method.
 		GetUserByEmail []struct {
 			// Ctx is the ctx argument value.
@@ -140,7 +127,6 @@ type CacheMock struct {
 	lockCacheUserByPagination sync.RWMutex
 	lockDeleteUserByEmail     sync.RWMutex
 	lockDeleteUserByID        sync.RWMutex
-	lockGetUserByAuthID       sync.RWMutex
 	lockGetUserByEmail        sync.RWMutex
 	lockGetUserByID           sync.RWMutex
 	lockGetUserByPagination   sync.RWMutex
@@ -291,42 +277,6 @@ func (mock *CacheMock) DeleteUserByIDCalls() []struct {
 	mock.lockDeleteUserByID.RLock()
 	calls = mock.calls.DeleteUserByID
 	mock.lockDeleteUserByID.RUnlock()
-	return calls
-}
-
-// GetUserByAuthID calls GetUserByAuthIDFunc.
-func (mock *CacheMock) GetUserByAuthID(ctx context.Context, authID string) (domain.User, error) {
-	if mock.GetUserByAuthIDFunc == nil {
-		panic("CacheMock.GetUserByAuthIDFunc: method is nil but Cache.GetUserByAuthID was just called")
-	}
-	callInfo := struct {
-		Ctx    context.Context
-		AuthID string
-	}{
-		Ctx:    ctx,
-		AuthID: authID,
-	}
-	mock.lockGetUserByAuthID.Lock()
-	mock.calls.GetUserByAuthID = append(mock.calls.GetUserByAuthID, callInfo)
-	mock.lockGetUserByAuthID.Unlock()
-	return mock.GetUserByAuthIDFunc(ctx, authID)
-}
-
-// GetUserByAuthIDCalls gets all the calls that were made to GetUserByAuthID.
-// Check the length with:
-//
-//	len(mockedCache.GetUserByAuthIDCalls())
-func (mock *CacheMock) GetUserByAuthIDCalls() []struct {
-	Ctx    context.Context
-	AuthID string
-} {
-	var calls []struct {
-		Ctx    context.Context
-		AuthID string
-	}
-	mock.lockGetUserByAuthID.RLock()
-	calls = mock.calls.GetUserByAuthID
-	mock.lockGetUserByAuthID.RUnlock()
 	return calls
 }
 

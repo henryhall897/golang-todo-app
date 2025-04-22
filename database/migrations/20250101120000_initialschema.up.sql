@@ -9,11 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
     name VARCHAR(100) NOT NULL,
     email VARCHAR(150) UNIQUE NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    auth_id VARCHAR(255) UNIQUE NOT NULL,
-
-    CONSTRAINT email_key UNIQUE (email),
-    CONSTRAINT auth_id_key UNIQUE (auth_id)
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create the todolists table
@@ -39,4 +35,15 @@ CREATE TABLE IF NOT EXISTS tasks (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Create the auth_identities table
+CREATE TABLE auth_identities (
+    auth_id TEXT PRIMARY KEY,               -- From Auth0 (e.g., "auth0|abc123")
+    provider TEXT NOT NULL,                 -- e.g., "auth0", "google", "github"
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role TEXT NOT NULL,                     -- Simplest RBAC for now
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 
