@@ -11,5 +11,6 @@ spec:
       kind: Rule
       services:
         - name: golang-todo-app-helm-chart
-          port: 8080
+          port: 80
+
 
