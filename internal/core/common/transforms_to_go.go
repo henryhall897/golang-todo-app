@@ -24,12 +24,12 @@ func FromPgText(pgText pgtype.Text) *string {
 }
 
 // FromPgTimestamptz converts a pgtype.Timestamptz to a Go time.Time pointer.
-func FromPgTimestamp(pgTime pgtype.Timestamp) *time.Time {
+func FromPgTimestamp(pgTime pgtype.Timestamp) time.Time {
 	if !pgTime.Valid {
-		return nil
+		return time.Time{}
 	}
 	t := pgTime.Time.UTC()
-	return &t
+	return t
 }
 
 // FromPgInt4 converts a pgtype.Int4 to a Go int32.

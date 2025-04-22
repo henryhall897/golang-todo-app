@@ -15,7 +15,6 @@ func pgToUsers(users userstore.User) (domain.User, error) {
 	}
 	userCreatedAt := common.FromPgTimestamp(users.CreatedAt)
 	userUpdatedAt := common.FromPgTimestamp(users.UpdatedAt)
-
 	return domain.User{
 		ID:        userID,
 		Name:      users.Name,

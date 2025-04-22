@@ -10,16 +10,26 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
+
 	"github.com/henryhall897/golang-todo-app/database"
 	"github.com/henryhall897/golang-todo-app/internal/config"
 	"github.com/henryhall897/golang-todo-app/internal/core/logging"
+	"github.com/henryhall897/golang-todo-app/internal/middleware"
 	"github.com/henryhall897/golang-todo-app/internal/router"
 	"github.com/henryhall897/golang-todo-app/internal/server"
+
+	//User packages
+	usercache "github.com/henryhall897/golang-todo-app/internal/users/cache"
+	userdomains "github.com/henryhall897/golang-todo-app/internal/users/domain"
 	userhandlers "github.com/henryhall897/golang-todo-app/internal/users/handler"
-	"github.com/henryhall897/golang-todo-app/internal/users/repository"
+	userrepo "github.com/henryhall897/golang-todo-app/internal/users/repository"
 	userroutes "github.com/henryhall897/golang-todo-app/internal/users/routes"
-	"github.com/henryhall897/golang-todo-app/internal/users/services"
-	"go.uber.org/zap"
+	userservices "github.com/henryhall897/golang-todo-app/internal/users/services"
+
+	// Redis wrapper
+	rediswrapper "github.com/henryhall897/golang-todo-app/pkg/redis"
 )
 
 // Version and BuildDate are populated at build time
@@ -101,11 +111,32 @@ func run(ctx context.Context, logger *zap.SugaredLogger, cfg *config.AppConfig) 
 	}
 	logger.Info("Database migrations completed successfully")
 
+	// Initialize Redis Client
+	logger.Info("Initializing Redis connection")
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     cfg.Redis.Address,
+		Password: cfg.Redis.Password, // Leave empty if no password
+		DB:       cfg.Redis.DB,       // Use default DB
+	})
+
+	// Check Redis connectivity
+	_, err = redisClient.Ping(ctx).Result()
+	if err != nil {
+		return fmt.Errorf("failed to connect to Redis: %w", err)
+	}
+	logger.Info("Redis connection established successfully")
+
+	// Initialize Redis cache
+	// Generic redis cache
+	genericCache := rediswrapper.NewJSONCache(redisClient, userdomains.RedisPrefix, logger)
+	//User specific redis cache
+	userCache := usercache.NewRedisUser(genericCache)
+
 	// Initialize stores
-	userStore := repository.New(pool)
+	userStore := userrepo.New(pool)
 
 	// Initialize services
-	userService := services.New(userStore, logger)
+	userService := userservices.New(userStore, userCache, logger)
 
 	// Initialize HTTP handlers
 	userHandler := userhandlers.New(userService, logger)
@@ -118,7 +149,10 @@ func run(ctx context.Context, logger *zap.SugaredLogger, cfg *config.AppConfig) 
 	// Initialize the router
 	rt := router.NewRouter(routeFuncs, []userhandlers.Handler{*userHandler})
 
-	// Add more route modules here (e.g., tasks, lists)
+	// TODO - Add more route modules here (e.g., tasks, lists)
+
+	// Apply CORS middleware to router
+	corsWrappedHandler := middleware.CORS(cfg.Server.CorsOrigin)(rt.LimitedHandler)
 
 	// Start the HTTP server
 	srv := server.NewHTTPServer(&config.ServerConfig{
@@ -126,5 +160,5 @@ func run(ctx context.Context, logger *zap.SugaredLogger, cfg *config.AppConfig) 
 		Port:        cfg.Server.Port,
 		Logger:      logger,
 	})
-	return srv.Serve(ctx, rt.LimitedHandler)
+	return srv.Serve(ctx, corsWrappedHandler)
 }

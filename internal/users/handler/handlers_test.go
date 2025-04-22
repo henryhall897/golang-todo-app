@@ -90,8 +90,8 @@ func TestCreateUserHandler(t *testing.T) {
 		assert.Equal(t, sampleUser.Email, responseBody.Email, "handler returned incorrect Email")
 
 		// Instead of direct comparison, check if timestamps are reasonably close
-		assert.WithinDuration(t, *sampleUser.CreatedAt, *responseBody.CreatedAt, time.Second, "handler returned incorrect CreatedAt")
-		assert.WithinDuration(t, *sampleUser.UpdatedAt, *responseBody.UpdatedAt, time.Second, "handler returned incorrect UpdatedAt")
+		assert.WithinDuration(t, sampleUser.CreatedAt, responseBody.CreatedAt, time.Second, "handler returned incorrect CreatedAt")
+		assert.WithinDuration(t, sampleUser.UpdatedAt, responseBody.UpdatedAt, time.Second, "handler returned incorrect UpdatedAt")
 	})
 
 	t.Run("failure - invalid request body", func(t *testing.T) {
@@ -169,8 +169,8 @@ func TestGetUserByIDHandler(t *testing.T) {
 		assert.Equal(t, sampleUser.Email, responseBody.Email, "handler returned incorrect Email")
 
 		// Allow slight differences in timestamps
-		assert.WithinDuration(t, *sampleUser.CreatedAt, *responseBody.CreatedAt, time.Second, "handler returned incorrect CreatedAt")
-		assert.WithinDuration(t, *sampleUser.UpdatedAt, *responseBody.UpdatedAt, time.Second, "handler returned incorrect UpdatedAt")
+		assert.WithinDuration(t, sampleUser.CreatedAt, responseBody.CreatedAt, time.Second, "handler returned incorrect CreatedAt")
+		assert.WithinDuration(t, sampleUser.UpdatedAt, responseBody.UpdatedAt, time.Second, "handler returned incorrect UpdatedAt")
 	})
 
 	t.Run("failure - user not found", func(t *testing.T) {
@@ -245,8 +245,8 @@ func TestGetUsersHandler(t *testing.T) {
 			assert.Equal(t, sampleUsers[i].Email, user.Email, "handler returned incorrect Email for user %d", i)
 
 			// Allow a margin for timestamp differences
-			assert.WithinDuration(t, *sampleUsers[i].CreatedAt, *user.CreatedAt, time.Second, "handler returned incorrect CreatedAt for user %d", i)
-			assert.WithinDuration(t, *sampleUsers[i].UpdatedAt, *user.UpdatedAt, time.Second, "handler returned incorrect UpdatedAt for user %d", i)
+			assert.WithinDuration(t, sampleUsers[i].CreatedAt, user.CreatedAt, time.Second, "handler returned incorrect CreatedAt for user %d", i)
+			assert.WithinDuration(t, sampleUsers[i].UpdatedAt, user.UpdatedAt, time.Second, "handler returned incorrect UpdatedAt for user %d", i)
 		}
 	})
 
@@ -316,8 +316,8 @@ func TestGetUserByEmailHandler(t *testing.T) {
 		assert.Equal(t, sampleUser.Email, responseBody.Email, "handler returned incorrect Email")
 
 		// Allow minor differences in timestamps
-		assert.WithinDuration(t, *sampleUser.CreatedAt, *responseBody.CreatedAt, time.Second, "handler returned incorrect CreatedAt")
-		assert.WithinDuration(t, *sampleUser.UpdatedAt, *responseBody.UpdatedAt, time.Second, "handler returned incorrect UpdatedAt")
+		assert.WithinDuration(t, sampleUser.CreatedAt, responseBody.CreatedAt, time.Second, "handler returned incorrect CreatedAt")
+		assert.WithinDuration(t, sampleUser.UpdatedAt, responseBody.UpdatedAt, time.Second, "handler returned incorrect UpdatedAt")
 	})
 
 	t.Run("failure - user not found", func(t *testing.T) {
@@ -369,7 +369,7 @@ func TestUpdateUserHandler(t *testing.T) {
 				Name:      params.Name,
 				Email:     params.Email,
 				CreatedAt: sampleUser.CreatedAt,
-				UpdatedAt: common.Ptr(time.Now()),
+				UpdatedAt: time.Now(),
 			}, nil
 		}
 
@@ -401,8 +401,8 @@ func TestUpdateUserHandler(t *testing.T) {
 		assert.Equal(t, newEmail, responseBody.Email, "handler returned incorrect Email")
 
 		// Allow minor differences in timestamps
-		assert.WithinDuration(t, *sampleUser.CreatedAt, *responseBody.CreatedAt, time.Second, "handler returned incorrect CreatedAt")
-		assert.WithinDuration(t, time.Now(), *responseBody.UpdatedAt, time.Second, "handler returned incorrect UpdatedAt")
+		assert.WithinDuration(t, sampleUser.CreatedAt, responseBody.CreatedAt, time.Second, "handler returned incorrect CreatedAt")
+		assert.WithinDuration(t, time.Now(), responseBody.UpdatedAt, time.Second, "handler returned incorrect UpdatedAt")
 	})
 
 	t.Run("failure - user not found", func(t *testing.T) {

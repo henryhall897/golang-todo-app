@@ -8,6 +8,15 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AuthIdentity struct {
+	AuthID    string           `json:"auth_id"`
+	Provider  string           `json:"provider"`
+	UserID    pgtype.UUID      `json:"user_id"`
+	Role      string           `json:"role"`
+	CreatedAt pgtype.Timestamp `json:"created_at"`
+	UpdatedAt pgtype.Timestamp `json:"updated_at"`
+}
+
 type Task struct {
 	ID          pgtype.UUID      `json:"id"`
 	ListID      pgtype.UUID      `json:"list_id"`
