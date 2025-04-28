@@ -12,10 +12,10 @@ import (
 
 type Querier interface {
 	CreateAuthIdentity(ctx context.Context, arg CreateAuthIdentityParams) (AuthIdentity, error)
-	DeleteAuthIdentityByAuthID(ctx context.Context, authID string) error
+	DeleteAuthIdentityByAuthID(ctx context.Context, authID string) (int64, error)
 	GetAuthIdentityByAuthID(ctx context.Context, authID string) (AuthIdentity, error)
 	GetAuthIdentityByUserID(ctx context.Context, userID pgtype.UUID) (AuthIdentity, error)
-	UpdateAuthIdentityRole(ctx context.Context, arg UpdateAuthIdentityRoleParams) error
+	UpdateAuthIdentityRole(ctx context.Context, arg UpdateAuthIdentityRoleParams) (AuthIdentity, error)
 }
 
 var _ Querier = (*Queries)(nil)

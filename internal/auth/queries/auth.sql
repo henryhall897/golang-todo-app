@@ -11,11 +11,13 @@ WHERE auth_id = $1;
 SELECT * FROM auth_identities
 WHERE user_id = $1;
 
--- name: UpdateAuthIdentityRole :exec
+-- name: UpdateAuthIdentityRole :one
 UPDATE auth_identities
 SET role = $2, updated_at = NOW()
-WHERE auth_id = $1;
+WHERE auth_id = $1
+RETURNING *;
 
--- name: DeleteAuthIdentityByAuthID :exec
+-- name: DeleteAuthIdentityByAuthID :execrows
 DELETE FROM auth_identities
 WHERE auth_id = $1;
+
