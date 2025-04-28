@@ -38,3 +38,11 @@ func createAuthIdentityParamsToPG(params domain.CreateAuthIdentityParams) authst
 		Role:     params.Role,
 	}
 }
+
+// updateAuthIdentityParamsToPG converts a domain.UpdateAuthIdentityParams to authstore.UpdateAuthIdentityParams
+func updateAuthIdentityParamsToPG(params domain.UpdateAuthIdentityParams) authstore.UpdateAuthIdentityRoleParams {
+	return authstore.UpdateAuthIdentityRoleParams{
+		AuthID: params.AuthID,
+		Role:   params.Role,
+	}
+}

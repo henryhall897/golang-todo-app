@@ -21,3 +21,8 @@ type CreateAuthIdentityParams struct {
 	UserID   uuid.UUID
 	Role     string
 }
+
+type UpdateAuthIdentityParams struct {
+	AuthID string
+	Role   string
+}

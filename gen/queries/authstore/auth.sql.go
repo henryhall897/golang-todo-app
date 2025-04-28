@@ -43,14 +43,17 @@ func (q *Queries) CreateAuthIdentity(ctx context.Context, arg CreateAuthIdentity
 	return i, err
 }
 
-const deleteAuthIdentityByAuthID = `-- name: DeleteAuthIdentityByAuthID :exec
+const deleteAuthIdentityByAuthID = `-- name: DeleteAuthIdentityByAuthID :execrows
 DELETE FROM auth_identities
 WHERE auth_id = $1
 `
 
-func (q *Queries) DeleteAuthIdentityByAuthID(ctx context.Context, authID string) error {
-	_, err := q.db.Exec(ctx, deleteAuthIdentityByAuthID, authID)
-	return err
+func (q *Queries) DeleteAuthIdentityByAuthID(ctx context.Context, authID string) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteAuthIdentityByAuthID, authID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const getAuthIdentityByAuthID = `-- name: GetAuthIdentityByAuthID :one
@@ -91,10 +94,11 @@ func (q *Queries) GetAuthIdentityByUserID(ctx context.Context, userID pgtype.UUI
 	return i, err
 }
 
-const updateAuthIdentityRole = `-- name: UpdateAuthIdentityRole :exec
+const updateAuthIdentityRole = `-- name: UpdateAuthIdentityRole :one
 UPDATE auth_identities
 SET role = $2, updated_at = NOW()
 WHERE auth_id = $1
+RETURNING auth_id, provider, user_id, role, created_at, updated_at
 `
 
 type UpdateAuthIdentityRoleParams struct {
@@ -102,7 +106,16 @@ type UpdateAuthIdentityRoleParams struct {
 	Role   string `json:"role"`
 }
 
-func (q *Queries) UpdateAuthIdentityRole(ctx context.Context, arg UpdateAuthIdentityRoleParams) error {
-	_, err := q.db.Exec(ctx, updateAuthIdentityRole, arg.AuthID, arg.Role)
-	return err
+func (q *Queries) UpdateAuthIdentityRole(ctx context.Context, arg UpdateAuthIdentityRoleParams) (AuthIdentity, error) {
+	row := q.db.QueryRow(ctx, updateAuthIdentityRole, arg.AuthID, arg.Role)
+	var i AuthIdentity
+	err := row.Scan(
+		&i.AuthID,
+		&i.Provider,
+		&i.UserID,
+		&i.Role,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
