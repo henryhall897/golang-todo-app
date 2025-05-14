@@ -3,11 +3,12 @@
 -- Enable the pgcrypto extension for generating UUIDs
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- Create the users table
+-- Create the users table with role support
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(100) NOT NULL,
     email VARCHAR(150) UNIQUE NOT NULL,
+    role VARCHAR(50) NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin')),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -41,7 +42,6 @@ CREATE TABLE auth_identities (
     auth_id TEXT PRIMARY KEY,               -- From Auth0 (e.g., "auth0|abc123")
     provider TEXT NOT NULL,                 -- e.g., "auth0", "google", "github"
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    role TEXT NOT NULL,                     -- Simplest RBAC for now
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

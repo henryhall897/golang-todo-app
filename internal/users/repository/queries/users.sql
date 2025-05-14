@@ -1,7 +1,7 @@
 -- Create a new user
 -- name: CreateUser :one
-INSERT INTO users (name, email)
-VALUES ($1, $2)
+INSERT INTO users (name, email, role)
+VALUES ($1, $2, $3)
 RETURNING *;
 
 -- Retrieve a user by ID
@@ -16,6 +16,9 @@ SELECT *
 FROM users
 WHERE email = $1;
 
+-- name: GetUserRoleByID :one
+SELECT role FROM users WHERE id = $1;
+
 -- Update user details
 -- name: UpdateUser :one
 UPDATE users
@@ -23,6 +26,14 @@ SET
     name = $2,
     email = $3,
     updated_at = CURRENT_TIMESTAMP
+WHERE id = $1
+RETURNING *;
+
+-- name: UpdateUserRole :one
+UPDATE users
+SET 
+  role = $2,
+  updated_at = CURRENT_TIMESTAMP
 WHERE id = $1
 RETURNING *;
 
