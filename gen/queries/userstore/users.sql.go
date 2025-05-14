@@ -94,17 +94,6 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 	return i, err
 }
 
-const getUserRoleByID = `-- name: GetUserRoleByID :one
-SELECT role FROM users WHERE id = $1
-`
-
-func (q *Queries) GetUserRoleByID(ctx context.Context, id pgtype.UUID) (string, error) {
-	row := q.db.QueryRow(ctx, getUserRoleByID, id)
-	var role string
-	err := row.Scan(&role)
-	return role, err
-}
-
 const getUsers = `-- name: GetUsers :many
 SELECT id, name, email, role, created_at, updated_at
 FROM users

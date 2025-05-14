@@ -32,9 +32,6 @@ var _ domain.Repository = &RepositoryMock{}
 //			GetUserByIDFunc: func(ctx context.Context, id uuid.UUID) (domain.User, error) {
 //				panic("mock out the GetUserByID method")
 //			},
-//			GetUserRoleByIDFunc: func(ctx context.Context, id uuid.UUID) (string, error) {
-//				panic("mock out the GetUserRoleByID method")
-//			},
 //			GetUsersFunc: func(ctx context.Context, params domain.GetUsersParams) ([]domain.User, error) {
 //				panic("mock out the GetUsers method")
 //			},
@@ -62,9 +59,6 @@ type RepositoryMock struct {
 
 	// GetUserByIDFunc mocks the GetUserByID method.
 	GetUserByIDFunc func(ctx context.Context, id uuid.UUID) (domain.User, error)
-
-	// GetUserRoleByIDFunc mocks the GetUserRoleByID method.
-	GetUserRoleByIDFunc func(ctx context.Context, id uuid.UUID) (string, error)
 
 	// GetUsersFunc mocks the GetUsers method.
 	GetUsersFunc func(ctx context.Context, params domain.GetUsersParams) ([]domain.User, error)
@@ -105,13 +99,6 @@ type RepositoryMock struct {
 			// ID is the id argument value.
 			ID uuid.UUID
 		}
-		// GetUserRoleByID holds details about calls to the GetUserRoleByID method.
-		GetUserRoleByID []struct {
-			// Ctx is the ctx argument value.
-			Ctx context.Context
-			// ID is the id argument value.
-			ID uuid.UUID
-		}
 		// GetUsers holds details about calls to the GetUsers method.
 		GetUsers []struct {
 			// Ctx is the ctx argument value.
@@ -134,14 +121,13 @@ type RepositoryMock struct {
 			Params domain.UpdateUserRoleParams
 		}
 	}
-	lockCreateUser      sync.RWMutex
-	lockDeleteUser      sync.RWMutex
-	lockGetUserByEmail  sync.RWMutex
-	lockGetUserByID     sync.RWMutex
-	lockGetUserRoleByID sync.RWMutex
-	lockGetUsers        sync.RWMutex
-	lockUpdateUser      sync.RWMutex
-	lockUpdateUserRole  sync.RWMutex
+	lockCreateUser     sync.RWMutex
+	lockDeleteUser     sync.RWMutex
+	lockGetUserByEmail sync.RWMutex
+	lockGetUserByID    sync.RWMutex
+	lockGetUsers       sync.RWMutex
+	lockUpdateUser     sync.RWMutex
+	lockUpdateUserRole sync.RWMutex
 }
 
 // CreateUser calls CreateUserFunc.
@@ -285,42 +271,6 @@ func (mock *RepositoryMock) GetUserByIDCalls() []struct {
 	mock.lockGetUserByID.RLock()
 	calls = mock.calls.GetUserByID
 	mock.lockGetUserByID.RUnlock()
-	return calls
-}
-
-// GetUserRoleByID calls GetUserRoleByIDFunc.
-func (mock *RepositoryMock) GetUserRoleByID(ctx context.Context, id uuid.UUID) (string, error) {
-	if mock.GetUserRoleByIDFunc == nil {
-		panic("RepositoryMock.GetUserRoleByIDFunc: method is nil but Repository.GetUserRoleByID was just called")
-	}
-	callInfo := struct {
-		Ctx context.Context
-		ID  uuid.UUID
-	}{
-		Ctx: ctx,
-		ID:  id,
-	}
-	mock.lockGetUserRoleByID.Lock()
-	mock.calls.GetUserRoleByID = append(mock.calls.GetUserRoleByID, callInfo)
-	mock.lockGetUserRoleByID.Unlock()
-	return mock.GetUserRoleByIDFunc(ctx, id)
-}
-
-// GetUserRoleByIDCalls gets all the calls that were made to GetUserRoleByID.
-// Check the length with:
-//
-//	len(mockedRepository.GetUserRoleByIDCalls())
-func (mock *RepositoryMock) GetUserRoleByIDCalls() []struct {
-	Ctx context.Context
-	ID  uuid.UUID
-} {
-	var calls []struct {
-		Ctx context.Context
-		ID  uuid.UUID
-	}
-	mock.lockGetUserRoleByID.RLock()
-	calls = mock.calls.GetUserRoleByID
-	mock.lockGetUserRoleByID.RUnlock()
 	return calls
 }
 

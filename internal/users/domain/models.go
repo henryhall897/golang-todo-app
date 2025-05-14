@@ -38,3 +38,9 @@ type UpdateUserRoleParams struct {
 	ID   uuid.UUID `json:"id"`
 	Role string    `json:"role"`
 }
+
+// AllRoles is a registry of valid roles
+var AllRoles = map[Role]struct{}{
+	RoleUser:  {},
+	RoleAdmin: {},
+}

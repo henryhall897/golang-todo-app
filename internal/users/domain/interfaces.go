@@ -23,9 +23,11 @@ type Repository interface {
 type Service interface {
 	CreateUser(ctx context.Context, params CreateUserParams) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
+	GetUserRoleByID(ctx context.Context, id uuid.UUID) (string, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUsers(ctx context.Context, params GetUsersParams) ([]User, error)
 	UpdateUser(ctx context.Context, params UpdateUserParams) (User, error)
+	UpdateUserRole(ctx context.Context, params UpdateUserRoleParams) (User, error)
 	DeleteUser(ctx context.Context, id uuid.UUID) error
 }
 

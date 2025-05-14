@@ -19,7 +19,6 @@ type Querier interface {
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	// Retrieve a user by ID
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
-	GetUserRoleByID(ctx context.Context, id pgtype.UUID) (string, error)
 	// Get all users with pagination
 	GetUsers(ctx context.Context, arg GetUsersParams) ([]User, error)
 	// Update user details
