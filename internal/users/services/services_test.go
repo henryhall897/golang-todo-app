@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -159,6 +160,80 @@ func TestGetUserByID(t *testing.T) {
 		require.Error(t, err)
 		assert.True(t, errors.Is(err, common.ErrInternalServerError)) // Should be masked as internal error
 		assert.Equal(t, domain.User{}, user)
+	})
+}
+
+func TestGetUserRoleByID(t *testing.T) {
+	suite := SetupSuite() // Load shared setup
+	defer suite.Redis.Server.Close()
+
+	// Define common test data
+	testUsers := testutils.GenerateMockUsers(1)
+	testUser := testUsers[0]
+	testUserID := testUser.ID
+
+	t.Run("success - role found from cache", func(t *testing.T) {
+		// Generate the full Redis cache key
+		cacheKey := domain.CacheKeyByID(testUser.ID)
+		cacheKey = RedisFullKey(cacheKey)
+
+		// Serialize the test user and manually store in Redis
+		userJSON, err := json.Marshal(testUser)
+		require.NoError(t, err)
+
+		err = suite.Redis.Server.Set(cacheKey, string(userJSON))
+		require.NoError(t, err)
+
+		// Call the service method
+		role, err := suite.Service.GetUserRoleByID(suite.ctx, testUserID)
+
+		// Assertions
+		require.NoError(t, err)
+		assert.Equal(t, string(testUser.Role), role)
+	})
+
+	t.Run("success - role found from repository", func(t *testing.T) {
+		suite.Redis.Server.FlushAll() // Clear Redis cache
+
+		// Mock full user retrieval through service fallback
+		suite.mockRepo.GetUserByIDFunc = func(ctx context.Context, id uuid.UUID) (domain.User, error) {
+			return testUser, nil
+		}
+
+		// Call the service method
+		role, err := suite.Service.GetUserRoleByID(suite.ctx, testUserID)
+
+		// Assertions
+		require.NoError(t, err)
+		assert.Equal(t, string(testUser.Role), role)
+	})
+
+	t.Run("failure - user not found", func(t *testing.T) {
+		suite.Redis.Server.FlushAll()
+
+		suite.mockRepo.GetUserByIDFunc = func(ctx context.Context, id uuid.UUID) (domain.User, error) {
+			return domain.User{}, common.ErrNotFound
+		}
+
+		role, err := suite.Service.GetUserRoleByID(suite.ctx, testUserID)
+
+		require.Error(t, err)
+		assert.True(t, errors.Is(err, common.ErrNotFound))
+		assert.Empty(t, role)
+	})
+
+	t.Run("failure - unexpected error", func(t *testing.T) {
+		suite.Redis.Server.FlushAll()
+
+		suite.mockRepo.GetUserByIDFunc = func(ctx context.Context, id uuid.UUID) (domain.User, error) {
+			return domain.User{}, errors.New("db crashed")
+		}
+
+		role, err := suite.Service.GetUserRoleByID(suite.ctx, testUserID)
+
+		require.Error(t, err)
+		assert.True(t, errors.Is(err, common.ErrInternalServerError))
+		assert.Empty(t, role)
 	})
 }
 
@@ -337,88 +412,6 @@ func TestGetUserByEmail(t *testing.T) {
 	})
 }
 
-/*func TestGetUserByAuthID(t *testing.T) {
-	suite := SetupSuite() // Load shared setup
-	defer suite.Redis.Server.Close()
-
-	// Define common test data
-	testUsers := testutils.GenerateMockUsers(1)
-	testUser := testUsers[0]
-	testAuthID := testUser.AuthID
-
-	t.Run("success - user found", func(t *testing.T) {
-		suite.Redis.Server.FlushAll() // Clear Redis to test repo fallback
-
-		// Mock repository to return valid user
-		suite.mockRepo.GetUserByAuthIDFunc = func(ctx context.Context, authID string) (domain.User, error) {
-			return testUser, nil
-		}
-
-		// Call the service method
-		user, err := suite.Service.GetUserByAuthID(suite.ctx, testAuthID)
-
-		// Assertions
-		require.NoError(t, err)
-		assert.Equal(t, testUser, user)
-	})
-
-	t.Run("failure - user not found", func(t *testing.T) {
-		suite.Redis.Server.FlushAll()
-
-		suite.mockRepo.GetUserByAuthIDFunc = func(ctx context.Context, authID string) (domain.User, error) {
-			return domain.User{}, common.ErrNotFound
-		}
-
-		user, err := suite.Service.GetUserByAuthID(suite.ctx, testAuthID)
-
-		require.Error(t, err)
-		assert.True(t, errors.Is(err, common.ErrNotFound))
-		assert.Equal(t, domain.User{}, user)
-	})
-
-	t.Run("failure - invalid user ID", func(t *testing.T) {
-		suite.Redis.Server.FlushAll()
-
-		suite.mockRepo.GetUserByAuthIDFunc = func(ctx context.Context, authID string) (domain.User, error) {
-			return domain.User{}, repository.ErrInvalidDbUserID
-		}
-
-		user, err := suite.Service.GetUserByAuthID(suite.ctx, testAuthID)
-
-		require.Error(t, err)
-		assert.True(t, errors.Is(err, common.ErrInternalServerError))
-		assert.Equal(t, domain.User{}, user)
-	})
-
-	t.Run("failure - failed to parse UUID", func(t *testing.T) {
-		suite.Redis.Server.FlushAll()
-
-		suite.mockRepo.GetUserByAuthIDFunc = func(ctx context.Context, authID string) (domain.User, error) {
-			return domain.User{}, repository.ErrFailedToParseUUID
-		}
-
-		user, err := suite.Service.GetUserByAuthID(suite.ctx, testAuthID)
-
-		require.Error(t, err)
-		assert.True(t, errors.Is(err, common.ErrInternalServerError))
-		assert.Equal(t, domain.User{}, user)
-	})
-
-	t.Run("failure - unexpected error", func(t *testing.T) {
-		suite.Redis.Server.FlushAll()
-
-		suite.mockRepo.GetUserByAuthIDFunc = func(ctx context.Context, authID string) (domain.User, error) {
-			return domain.User{}, errors.New("database timeout")
-		}
-
-		user, err := suite.Service.GetUserByAuthID(suite.ctx, testAuthID)
-
-		require.Error(t, err)
-		assert.True(t, errors.Is(err, common.ErrInternalServerError))
-		assert.Equal(t, domain.User{}, user)
-	})
-}*/
-
 func TestUpdateUser(t *testing.T) {
 	suite := SetupSuite() // Load shared setup
 	defer suite.Redis.Server.Close()
@@ -512,6 +505,83 @@ func TestUpdateUser(t *testing.T) {
 		// Assertions
 		require.Error(t, err)
 		assert.True(t, errors.Is(err, common.ErrInternalServerError)) // Should be masked as internal error
+		assert.Equal(t, domain.User{}, updatedUser)
+	})
+}
+
+func TestUpdateUserRole(t *testing.T) {
+	suite := SetupSuite()
+	defer suite.Redis.Server.Close()
+
+	// Define test user
+	testUsers := testutils.GenerateMockUsers(1)
+	testUser := testUsers[0]
+
+	newRole := "admin"
+
+	validUpdateParams := domain.UpdateUserRoleParams{
+		ID:   testUser.ID,
+		Role: newRole,
+	}
+
+	invalidUpdateParams := domain.UpdateUserRoleParams{
+		ID:   testUser.ID,
+		Role: "invalid_role",
+	}
+
+	t.Run("success - role updated", func(t *testing.T) {
+		// Define expected updated user
+		updatedUser := testUser
+		updatedUser.Role = newRole
+
+		// Mock successful role update
+		suite.mockRepo.UpdateUserRoleFunc = func(ctx context.Context, params domain.UpdateUserRoleParams) (domain.User, error) {
+			// Assert that the correct (new) role was passed into the repository
+			assert.Equal(t, newRole, params.Role)
+			assert.Equal(t, testUser.ID, params.ID)
+			return updatedUser, nil
+		}
+
+		// Call the service method
+		result, err := suite.Service.UpdateUserRole(suite.ctx, validUpdateParams)
+
+		// Assertions
+		require.NoError(t, err)
+		assert.Equal(t, updatedUser.ID, result.ID)
+		assert.Equal(t, updatedUser.Name, result.Name)
+		assert.Equal(t, updatedUser.Email, result.Email)
+		assert.Equal(t, newRole, result.Role)
+	})
+
+	t.Run("failure - invalid role", func(t *testing.T) {
+		updatedUser, err := suite.Service.UpdateUserRole(suite.ctx, invalidUpdateParams)
+
+		require.Error(t, err)
+		assert.True(t, errors.Is(err, common.ErrValidation))
+		assert.Equal(t, domain.User{}, updatedUser)
+	})
+
+	t.Run("failure - user not found", func(t *testing.T) {
+		suite.mockRepo.UpdateUserRoleFunc = func(ctx context.Context, params domain.UpdateUserRoleParams) (domain.User, error) {
+			return domain.User{}, common.ErrNotFound
+		}
+
+		updatedUser, err := suite.Service.UpdateUserRole(suite.ctx, validUpdateParams)
+
+		require.Error(t, err)
+		assert.True(t, errors.Is(err, common.ErrNotFound))
+		assert.Equal(t, domain.User{}, updatedUser)
+	})
+
+	t.Run("failure - unexpected error", func(t *testing.T) {
+		suite.mockRepo.UpdateUserRoleFunc = func(ctx context.Context, params domain.UpdateUserRoleParams) (domain.User, error) {
+			return domain.User{}, errors.New("db timeout")
+		}
+
+		updatedUser, err := suite.Service.UpdateUserRole(suite.ctx, validUpdateParams)
+
+		require.Error(t, err)
+		assert.True(t, errors.Is(err, common.ErrInternalServerError))
 		assert.Equal(t, domain.User{}, updatedUser)
 	})
 }

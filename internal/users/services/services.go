@@ -105,6 +105,19 @@ func (s *service) GetUserByID(ctx context.Context, id uuid.UUID) (domain.User, e
 	return user, nil
 }
 
+// GetUserRoleByID retrieves a user's role by ID, using Redis caching when possible
+func (s *service) GetUserRoleByID(ctx context.Context, id uuid.UUID) (string, error) {
+	// Use the existing GetUserByID which handles both caching and DB fallback
+	user, err := s.GetUserByID(ctx, id)
+	if err != nil {
+		// All error handling already done in GetUserByID
+		return "", err
+	}
+
+	s.logger.Debugw("User role retrieved successfully", "user_id", id, "role", user.Role)
+	return user.Role, nil
+}
+
 // GetUserByEmail retrieves a user by email, utilizing Redis caching
 func (s *service) GetUserByEmail(ctx context.Context, email string) (domain.User, error) {
 	// Attempt to retrieve cached user from Redis
@@ -145,47 +158,6 @@ func (s *service) GetUserByEmail(ctx context.Context, email string) (domain.User
 	s.logger.Debugw("User retrieved successfully", "user_id", user.ID, "email", user.Email)
 	return user, nil
 }
-
-/*// GetUserByAuthID retrieves a user by their Auth0 ID, utilizing Redis caching
-func (s *service) GetUserByAuthID(ctx context.Context, authID string) (domain.User, error) {
-	// Attempt to retrieve cached user from Redis
-	if cachedUser, err := s.cache.GetUserByAuthID(ctx, authID); err == nil {
-		s.logger.Debugw("Cache hit: Retrieved user from Redis via Auth0 ID",
-			"user_id", cachedUser.ID,
-			"auth_id", authID,
-		)
-		return cachedUser, nil
-	}
-
-	// Fetch user from the database
-	user, err := s.repo.GetUserByAuthID(ctx, authID)
-	if err != nil {
-		if errors.Is(err, repository.ErrInvalidDbUserID) || errors.Is(err, repository.ErrFailedToParseUUID) {
-			s.logger.Errorw("GetUserByAuthID failed: invalid user data in database",
-				"auth_id", authID, "error", err,
-			)
-			return domain.User{}, common.ErrInternalServerError
-		}
-		if errors.Is(err, common.ErrNotFound) {
-			s.logger.Warnw("GetUserByAuthID failed: user not found",
-				"auth_id", authID, "error", err,
-			)
-			return domain.User{}, common.ErrNotFound
-		}
-		s.logger.Errorw("GetUserByAuthID failed: internal server error",
-			"auth_id", authID, "error", err,
-		)
-		return domain.User{}, common.ErrInternalServerError
-	}
-
-	// cache to redis Redis
-	if err := s.cache.CacheUser(ctx, user); err != nil {
-		s.logger.Errorw("Failed to store user in Redis", "auth_id", authID, "error", err)
-	}
-
-	s.logger.Debugw("User retrieved successfully", "user_id", user.ID, "auth_id", user.AuthID)
-	return user, nil
-}*/
 
 // GetUsers retrieves a list of users with caching
 func (s *service) GetUsers(ctx context.Context, params domain.GetUsersParams) ([]domain.User, error) {
@@ -228,7 +200,6 @@ func (s *service) GetUsers(ctx context.Context, params domain.GetUsersParams) ([
 	return users, nil
 }
 
-// TODO - Implement AUTH0 update
 // UpdateUser updates an existing user's details and refreshes cache
 func (s *service) UpdateUser(ctx context.Context, params domain.UpdateUserParams) (domain.User, error) {
 	// Clear out old cache entries
@@ -261,7 +232,33 @@ func (s *service) UpdateUser(ctx context.Context, params domain.UpdateUserParams
 	return user, nil
 }
 
-// TODO - Implement AUTH0 deletion
+func (s *service) UpdateUserRole(ctx context.Context, input domain.UpdateUserRoleParams) (domain.User, error) {
+	// Validate role
+	if !IsValidRole(domain.Role(input.Role)) {
+		s.logger.Warnw("Attempted to set invalid role", "role", input.Role)
+		return domain.User{}, common.ErrValidation
+	}
+
+	// Update role in DB
+	user, err := s.repo.UpdateUserRole(ctx, input)
+	if err != nil {
+		if errors.Is(err, common.ErrNotFound) {
+			s.logger.Warnw("User not found when updating role", "user_id", input.ID)
+			return domain.User{}, common.ErrNotFound
+		}
+
+		s.logger.Errorw("Failed to update user role", "user_id", input.ID, "error", err)
+		return domain.User{}, common.ErrInternalServerError
+	}
+
+	// Refresh Redis cache
+	if err := s.cache.CacheUser(ctx, user); err != nil {
+		s.logger.Warnw("Failed to cache user after role update", "user_id", user.ID, "error", err)
+	}
+
+	return user, nil
+}
+
 // DeleteUser deletes a user by ID
 func (s *service) DeleteUser(ctx context.Context, id uuid.UUID) error {
 	// Clear out old cache entries
