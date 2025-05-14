@@ -42,8 +42,7 @@ CREATE TABLE auth_identities (
     auth_id TEXT PRIMARY KEY,               -- From Auth0 (e.g., "auth0|abc123")
     provider TEXT NOT NULL,                 -- e.g., "auth0", "google", "github"
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 

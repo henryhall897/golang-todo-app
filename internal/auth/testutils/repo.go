@@ -15,32 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	// MockProvider is a mock provider name for testing.
-	mockProvider = "mock_provider"
-	// MockRole is a mock role for testing.
-	mockRole = "mock_role"
-)
-
-// GenerateMockAuthIdentities creates mock auth identity records for a list of users.
-func GenerateMockAuthIdentities(users []userdomain.User, provider string, role string) []domain.AuthIdentity {
-	now := time.Now()
-	authList := make([]domain.AuthIdentity, len(users))
-
-	for i, user := range users {
-		authList[i] = domain.AuthIdentity{
-			AuthID:    fmt.Sprintf("%s|mock%d", provider, i+1),
-			Provider:  provider,
-			UserID:    user.ID,
-			Role:      role,
-			CreatedAt: now,
-			UpdatedAt: now,
-		}
-	}
-
-	return authList
-}
-
+// Repo level
 // InsertMockUsersIntoDB inserts a list of mock users into the test DB.
 func InsertMockUsersIntoDB(t *testing.T, db *pgxpool.Pool, ctx context.Context, users []userdomain.User) {
 	t.Helper()
@@ -54,16 +29,16 @@ func InsertMockUsersIntoDB(t *testing.T, db *pgxpool.Pool, ctx context.Context, 
 	}
 }
 
+// Transformations
 // GenerateMockAuthParams creates mock CreateAuthIdentityParams for a given list of users.
 func GenerateMockAuthParams(users []userdomain.User) []domain.CreateAuthIdentityParams {
 	authParams := make([]domain.CreateAuthIdentityParams, len(users))
 
 	for i, user := range users {
 		authParams[i] = domain.CreateAuthIdentityParams{
-			AuthID:   fmt.Sprintf("%s|mock%d", mockProvider, i+1),
-			Provider: mockProvider,
+			AuthID:   fmt.Sprintf("%s|mock%d", MockProviderBase, i+1),
+			Provider: MockProviderBase,
 			UserID:   user.ID,
-			Role:     mockRole,
 		}
 	}
 
@@ -79,8 +54,6 @@ func GenerateMockPGAuthIdentity() authstore.AuthIdentity {
 		AuthID:    "auth0|mock123",
 		Provider:  "auth0",
 		UserID:    pgtype.UUID{Bytes: validUUID, Valid: true},
-		Role:      "user",
 		CreatedAt: pgtype.Timestamp{Time: validTime, Valid: true},
-		UpdatedAt: pgtype.Timestamp{Time: validTime, Valid: true},
 	}
 }

@@ -16,6 +16,6 @@ const (
 	RedisTTL         = 10 * time.Minute
 
 	// Role constants
-	RoleUser  Role = "user"
-	RoleAdmin Role = "admin"
+	DefaultRole Role = "user"
+	RoleAdmin   Role = "admin"
 )

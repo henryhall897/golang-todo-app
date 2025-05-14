@@ -14,7 +14,7 @@ import (
 const createAuthIdentity = `-- name: CreateAuthIdentity :one
 INSERT INTO auth_identities (auth_id, provider, user_id)
 VALUES ($1, $2, $3)
-RETURNING auth_id, provider, user_id, created_at, updated_at
+RETURNING auth_id, provider, user_id, created_at
 `
 
 type CreateAuthIdentityParams struct {
@@ -31,7 +31,6 @@ func (q *Queries) CreateAuthIdentity(ctx context.Context, arg CreateAuthIdentity
 		&i.Provider,
 		&i.UserID,
 		&i.CreatedAt,
-		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -50,7 +49,7 @@ func (q *Queries) DeleteAuthIdentityByAuthID(ctx context.Context, authID string)
 }
 
 const getAuthIdentitiesByUserID = `-- name: GetAuthIdentitiesByUserID :many
-SELECT auth_id, provider, user_id, created_at, updated_at FROM auth_identities
+SELECT auth_id, provider, user_id, created_at FROM auth_identities
 WHERE user_id = $1
 `
 
@@ -68,7 +67,6 @@ func (q *Queries) GetAuthIdentitiesByUserID(ctx context.Context, userID pgtype.U
 			&i.Provider,
 			&i.UserID,
 			&i.CreatedAt,
-			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -81,7 +79,7 @@ func (q *Queries) GetAuthIdentitiesByUserID(ctx context.Context, userID pgtype.U
 }
 
 const getAuthIdentityByAuthID = `-- name: GetAuthIdentityByAuthID :one
-SELECT auth_id, provider, user_id, created_at, updated_at FROM auth_identities
+SELECT auth_id, provider, user_id, created_at FROM auth_identities
 WHERE auth_id = $1
 `
 
@@ -93,7 +91,6 @@ func (q *Queries) GetAuthIdentityByAuthID(ctx context.Context, authID string) (A
 		&i.Provider,
 		&i.UserID,
 		&i.CreatedAt,
-		&i.UpdatedAt,
 	)
 	return i, err
 }

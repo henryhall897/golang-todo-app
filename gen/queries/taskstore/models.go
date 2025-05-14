@@ -13,7 +13,6 @@ type AuthIdentity struct {
 	Provider  string           `json:"provider"`
 	UserID    pgtype.UUID      `json:"user_id"`
 	CreatedAt pgtype.Timestamp `json:"created_at"`
-	UpdatedAt pgtype.Timestamp `json:"updated_at"`
 }
 
 type Task struct {

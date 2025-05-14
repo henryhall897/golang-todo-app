@@ -41,6 +41,6 @@ type UpdateUserRoleParams struct {
 
 // AllRoles is a registry of valid roles
 var AllRoles = map[Role]struct{}{
-	RoleUser:  {},
-	RoleAdmin: {},
+	DefaultRole: {},
+	RoleAdmin:   {},
 }
