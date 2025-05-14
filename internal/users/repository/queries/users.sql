@@ -16,9 +16,6 @@ SELECT *
 FROM users
 WHERE email = $1;
 
--- name: GetUserRoleByID :one
-SELECT role FROM users WHERE id = $1;
-
 -- Update user details
 -- name: UpdateUser :one
 UPDATE users

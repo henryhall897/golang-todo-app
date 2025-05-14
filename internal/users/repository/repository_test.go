@@ -198,38 +198,6 @@ func (u *UserTestSuite) TestGetUserByEmail() {
 	})
 }
 
-// TestGetUserRoleByID validates retrieving a user's role by ID
-func (u *UserTestSuite) TestGetUserRoleByID() {
-	ctx := u.ctx
-
-	t := u.T() // Get the underlying testing.T instance
-
-	t.Run("Valid User ID", func(t *testing.T) {
-		// Arrange - Create a sample user
-		users, err := u.CreateSampleUsers(ctx, 1)
-		u.Require().NoError(err)
-		createdUser := users[0]
-
-		// Act
-		retrievedRole, err := u.repository.GetUserRoleByID(ctx, createdUser.ID)
-
-		// Assert
-		u.Require().NoError(err)
-		u.NotEmpty(retrievedRole)
-		u.Equal(createdUser.Role, retrievedRole) // Assuming the domain.User struct has a Role field
-	})
-
-	t.Run("User Not Found", func(t *testing.T) {
-		// Act
-		nonExistentID := uuid.New()
-		_, err := u.repository.GetUserRoleByID(ctx, nonExistentID)
-
-		// Assert
-		u.Require().Error(err)
-		u.ErrorIs(err, common.ErrNotFound)
-	})
-}
-
 // TestGetUsers checks listing all users
 func (u *UserTestSuite) TestGetUsers() {
 	ctx := u.ctx

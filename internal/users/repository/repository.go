@@ -94,21 +94,6 @@ func (r *repository) GetUserByEmail(ctx context.Context, email string) (domain.U
 	return result, nil
 }
 
-func (r *repository) GetUserRoleByID(ctx context.Context, id uuid.UUID) (string, error) {
-	// Convert uuid.UUID to pgtype.UUID
-	pgUUID, _ := common.ToPgUUID(id)
-
-	// Execute the query to get the user role by ID
-	role, err := r.query.GetUserRoleByID(ctx, pgUUID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return "", fmt.Errorf("user %s: %w", id, common.ErrNotFound)
-	} else if err != nil {
-		return "", fmt.Errorf("user %s: %w", id, common.ErrInternalServerError)
-	}
-
-	return role, nil
-}
-
 func (r *repository) GetUsers(ctx context.Context, getUserParams domain.GetUsersParams) ([]domain.User, error) {
 	// Execute the query to get users
 	users, err := r.query.GetUsers(ctx, getUsersParamsToPG(getUserParams))
