@@ -1,5 +1,3 @@
-//go:build unit
-
 package repository
 
 import (
@@ -10,6 +8,7 @@ import (
 	"github.com/henryhall897/golang-todo-app/internal/core/common"
 	"github.com/henryhall897/golang-todo-app/internal/core/dbpool"
 	"github.com/henryhall897/golang-todo-app/internal/users/domain"
+	"github.com/henryhall897/golang-todo-app/internal/users/testutils"
 	"github.com/henryhall897/golang-todo-app/pkg/dbtest"
 
 	"github.com/google/uuid"
@@ -60,26 +59,29 @@ func (u *UserTestSuite) TearDownTest() {
 }
 
 func (u *UserTestSuite) CreateSampleUsers(ctx context.Context, count int) ([]domain.User, error) {
-	var users []domain.User
+	// Generate mock users with the utility function
+	mockUsers := testutils.GenerateMockUsers(count)
+	var createdUsers []domain.User
 
-	for i := 1; i <= count; i++ {
-		name := fmt.Sprintf("Joe %d", i)
-		email := fmt.Sprintf("joe%d@example.com", i)
-
+	// Insert each mock user into the database
+	for i, mockUser := range mockUsers {
+		// Convert mock user to creation parameters
 		newUser := domain.CreateUserParams{
-			Name:  name,
-			Email: email,
+			Name:  mockUser.Name,
+			Email: mockUser.Email,
+			Role:  mockUser.Role,
 		}
 
+		// Create the user in the database
 		user, err := u.repository.CreateUser(ctx, newUser)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create sample user %d: %w", i, err)
+			return nil, fmt.Errorf("failed to create sample user %d: %w", i+1, err)
 		}
 
-		users = append(users, user)
+		createdUsers = append(createdUsers, user)
 	}
 
-	return users, nil
+	return createdUsers, nil
 }
 
 func (u *UserTestSuite) TestCreateUser() {
@@ -90,6 +92,7 @@ func (u *UserTestSuite) TestCreateUser() {
 		newUser := domain.CreateUserParams{
 			Name:  "John Doe",
 			Email: "john.doe@example.com",
+			Role:  "user",
 		}
 
 		createdUser, err := u.repository.CreateUser(ctx, newUser)
@@ -109,10 +112,12 @@ func (u *UserTestSuite) TestCreateUser() {
 		original := domain.CreateUserParams{
 			Name:  "Jane Smith",
 			Email: "jane@example.com",
+			Role:  "admin",
 		}
 		duplicate := domain.CreateUserParams{
 			Name:  "Fake Jane",
 			Email: "jane@example.com", // same email
+			Role:  "user",
 		}
 
 		_, err := u.repository.CreateUser(ctx, original)
@@ -122,25 +127,6 @@ func (u *UserTestSuite) TestCreateUser() {
 		u.Require().Error(err)
 		u.ErrorIs(err, ErrEmailAlreadyExists)
 	})
-
-	/*t.Run("Duplicate AuthID", func(t *testing.T) {
-		// Arrange
-		original := domain.CreateUserParams{
-			Name:  "Bob Marley",
-			Email: "bob@example.com",
-		}
-		duplicate := domain.CreateUserParams{
-			Name:  "Imposter Bob",
-			Email: "bob-imposter@example.com", // different email
-		}
-
-		_, err := u.repository.CreateUser(ctx, original)
-		u.Require().NoError(err)
-
-		_, err = u.repository.CreateUser(ctx, duplicate)
-		u.Require().Error(err)
-		u.ErrorIs(err, ErrAuthIDAlreadyExists)
-	})*/
 }
 
 // TestGetUserByID validates retrieving a user by ID
@@ -177,40 +163,6 @@ func (u *UserTestSuite) TestGetUserByID() {
 	})
 }
 
-/*// TestGetUserByAuthID validates retrieving a user by Auth0 ID
-func (u *UserTestSuite) TestGetUserByAuthID() {
-	ctx := u.ctx
-	t := u.T()
-
-	t.Run("Valid AuthID", func(t *testing.T) {
-		// Arrange - Create a sample user with mock auth_id
-		users, err := u.CreateSampleUsers(ctx, 1)
-		u.Require().NoError(err)
-		createdUser := users[0]
-
-		// Act
-		retrievedUser, err := u.repository.GetUserByAuthID(ctx, createdUser.AuthID)
-
-		// Assert
-		u.Require().NoError(err)
-		u.Require().NotNil(retrievedUser)
-		u.Equal(createdUser.ID, retrievedUser.ID)
-		u.Equal(createdUser.Name, retrievedUser.Name)
-		u.Equal(createdUser.Email, retrievedUser.Email)
-		u.Equal(createdUser.AuthID, retrievedUser.AuthID)
-	})
-
-	t.Run("AuthID Not Found", func(t *testing.T) {
-		// Act
-		nonExistentAuthID := "auth0|nonexistent-id"
-		_, err := u.repository.GetUserByAuthID(ctx, nonExistentAuthID)
-
-		// Assert
-		u.Require().Error(err)
-		u.ErrorIs(err, common.ErrNotFound)
-	})
-}*/
-
 // TestGetUserByEmail validates retrieving a user by email
 func (u *UserTestSuite) TestGetUserByEmail() {
 	ctx := u.ctx
@@ -239,6 +191,38 @@ func (u *UserTestSuite) TestGetUserByEmail() {
 
 		// Act
 		_, err := u.repository.GetUserByEmail(ctx, nonExistentEmail)
+
+		// Assert
+		u.Require().Error(err)
+		u.ErrorIs(err, common.ErrNotFound)
+	})
+}
+
+// TestGetUserRoleByID validates retrieving a user's role by ID
+func (u *UserTestSuite) TestGetUserRoleByID() {
+	ctx := u.ctx
+
+	t := u.T() // Get the underlying testing.T instance
+
+	t.Run("Valid User ID", func(t *testing.T) {
+		// Arrange - Create a sample user
+		users, err := u.CreateSampleUsers(ctx, 1)
+		u.Require().NoError(err)
+		createdUser := users[0]
+
+		// Act
+		retrievedRole, err := u.repository.GetUserRoleByID(ctx, createdUser.ID)
+
+		// Assert
+		u.Require().NoError(err)
+		u.NotEmpty(retrievedRole)
+		u.Equal(createdUser.Role, retrievedRole) // Assuming the domain.User struct has a Role field
+	})
+
+	t.Run("User Not Found", func(t *testing.T) {
+		// Act
+		nonExistentID := uuid.New()
+		_, err := u.repository.GetUserRoleByID(ctx, nonExistentID)
 
 		// Assert
 		u.Require().Error(err)
@@ -369,7 +353,6 @@ func (u *UserTestSuite) TestUpdateUser() {
 		u.Equal(updatedName, retrievedUser.Name, "Retrieved user name should match the updated name")
 		u.Equal(updatedEmail, retrievedUser.Email, "Retrieved user email should match the updated email")
 	})
-
 	t.Run("Update domain.User with Partial Fields", func(t *testing.T) {
 		// Arrange - Only update the name
 		partialUpdatedName := "Jane Partial"
@@ -396,6 +379,85 @@ func (u *UserTestSuite) TestUpdateUser() {
 		u.Require().NotNil(retrievedUser)
 		u.Equal(partialUpdatedName, retrievedUser.Name, "Retrieved user name should match the updated name")
 		u.Equal(updatedEmail, retrievedUser.Email, "Retrieved user email should remain unchanged")
+	})
+}
+
+func (u *UserTestSuite) TestUpdateUserRole() {
+	ctx := u.ctx
+	t := u.T() // Get the testing instance
+
+	// Arrange - Create a sample user
+	users, err := u.CreateSampleUsers(ctx, 1)
+	u.Require().NoError(err)
+	createdUser := users[0]
+
+	t.Run("Update User Role to Admin", func(t *testing.T) {
+		// Initial role should be "user"
+		u.Equal("user", createdUser.Role, "Initial role should be 'user'")
+
+		// Prepare update parameters
+		updateParams := domain.UpdateUserRoleParams{
+			ID:   createdUser.ID,
+			Role: "admin",
+		}
+
+		// Act - Update the user's role
+		updatedUser, err := u.repository.UpdateUserRole(ctx, updateParams)
+
+		// Assert - Verify update
+		u.Require().NoError(err, "Failed to update user role")
+		u.Require().NotNil(updatedUser)
+		u.Equal(createdUser.ID, updatedUser.ID, "User ID should remain unchanged")
+		u.Equal("admin", updatedUser.Role, "User role should be updated to 'admin'")
+		u.NotEqual(createdUser.UpdatedAt, updatedUser.UpdatedAt, "UpdatedAt should be changed")
+
+		// Act - Retrieve the updated user to confirm changes in the database
+		retrievedUser, err := u.repository.GetUserByID(ctx, createdUser.ID)
+
+		// Assert - Verify retrieved user has the updated role
+		u.Require().NoError(err, "Failed to retrieve updated user")
+		u.Require().NotNil(retrievedUser)
+		u.Equal("admin", retrievedUser.Role, "Retrieved user role should be 'admin'")
+	})
+
+	t.Run("Update User Role Back to User", func(t *testing.T) {
+		// Prepare update parameters to change role back to "user"
+		updateParams := domain.UpdateUserRoleParams{
+			ID:   createdUser.ID,
+			Role: "user",
+		}
+
+		// Act - Update the user's role
+		updatedUser, err := u.repository.UpdateUserRole(ctx, updateParams)
+
+		// Assert - Verify update
+		u.Require().NoError(err, "Failed to update user role")
+		u.Require().NotNil(updatedUser)
+		u.Equal("user", updatedUser.Role, "User role should be updated to 'user'")
+
+		// Act - Retrieve the updated user to confirm changes in the database
+		retrievedUser, err := u.repository.GetUserByID(ctx, createdUser.ID)
+
+		// Assert - Verify retrieved user has the updated role
+		u.Require().NoError(err, "Failed to retrieve updated user")
+		u.Require().NotNil(retrievedUser)
+		u.Equal("user", retrievedUser.Role, "Retrieved user role should be 'user'")
+	})
+
+	t.Run("Update Non-Existent User", func(t *testing.T) {
+		// Prepare update parameters with non-existent user ID
+		nonExistentID := uuid.New()
+		updateParams := domain.UpdateUserRoleParams{
+			ID:   nonExistentID,
+			Role: "admin",
+		}
+
+		// Act - Try to update non-existent user
+		_, err := u.repository.UpdateUserRole(ctx, updateParams)
+
+		// Assert - Should return ErrNotFound
+		u.Require().Error(err, "Should error when updating non-existent user")
+		u.ErrorIs(err, common.ErrNotFound, "Should return ErrNotFound")
 	})
 }
 

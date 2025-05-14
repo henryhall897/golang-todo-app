@@ -73,25 +73,6 @@ func (r *repository) GetUserByID(ctx context.Context, id uuid.UUID) (domain.User
 	return result, nil
 }
 
-/*// GetUserByAuthID retrieves a user by their Auth0 ID.
-func (r *repository) GetUserByAuthID(ctx context.Context, authID string) (domain.User, error) {
-	// Execute the query to get the user by Auth0 ID
-	user, err := r.query.GetUserByAuthID(ctx, authID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.User{}, fmt.Errorf("auth_id %s: %w", authID, common.ErrNotFound)
-	} else if err != nil {
-		return domain.User{}, fmt.Errorf("auth_id %s: %w", authID, common.ErrInternalServerError)
-	}
-
-	// Convert the raw database results into the domain.User type
-	result, err := pgToUsers(user)
-	if err != nil {
-		return domain.User{}, err
-	}
-
-	return result, nil
-}*/
-
 func (r *repository) GetUserByEmail(ctx context.Context, email string) (domain.User, error) {
 	// Execute the query to get the user by email
 	user, err := r.query.GetUserByEmail(ctx, email)
@@ -111,6 +92,21 @@ func (r *repository) GetUserByEmail(ctx context.Context, email string) (domain.U
 	}
 
 	return result, nil
+}
+
+func (r *repository) GetUserRoleByID(ctx context.Context, id uuid.UUID) (string, error) {
+	// Convert uuid.UUID to pgtype.UUID
+	pgUUID, _ := common.ToPgUUID(id)
+
+	// Execute the query to get the user role by ID
+	role, err := r.query.GetUserRoleByID(ctx, pgUUID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", fmt.Errorf("user %s: %w", id, common.ErrNotFound)
+	} else if err != nil {
+		return "", fmt.Errorf("user %s: %w", id, common.ErrInternalServerError)
+	}
+
+	return role, nil
 }
 
 func (r *repository) GetUsers(ctx context.Context, getUserParams domain.GetUsersParams) ([]domain.User, error) {
@@ -154,6 +150,30 @@ func (r *repository) UpdateUser(ctx context.Context, updateParams domain.UpdateU
 	}
 
 	return updatedUser, nil
+}
+
+func (r *repository) UpdateUserRole(ctx context.Context, input domain.UpdateUserRoleParams) (domain.User, error) {
+	// Transform domain input to store-layer params
+	params, err := updateRoleparamsToPG(input)
+	if err != nil {
+		return domain.User{}, fmt.Errorf("update user role transform error: %w", err)
+	}
+
+	// Execute the query to update the user's role
+	user, err := r.query.UpdateUserRole(ctx, params)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.User{}, fmt.Errorf("user %s: %w", input.ID, common.ErrNotFound)
+	} else if err != nil {
+		return domain.User{}, fmt.Errorf("user %s: %w", input.ID, common.ErrInternalServerError)
+	}
+
+	// Convert DB model to domain model
+	result, err := pgToUsers(user)
+	if err != nil {
+		return domain.User{}, err
+	}
+
+	return result, nil
 }
 
 func (r *repository) DeleteUser(ctx context.Context, id uuid.UUID) error {

@@ -17,6 +17,7 @@ func GenerateMockUsers(count int) []domain.User {
 			ID:        uuid.New(),
 			Name:      fmt.Sprintf("John %d Doe", i+1),
 			Email:     fmt.Sprintf("johndoe%d@example.com", i+1),
+			Role:      "user", // Default role for all test users
 			CreatedAt: now,
 			UpdatedAt: now,
 		}

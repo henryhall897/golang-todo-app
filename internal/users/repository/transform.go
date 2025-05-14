@@ -19,6 +19,7 @@ func pgToUsers(users userstore.User) (domain.User, error) {
 		ID:        userID,
 		Name:      users.Name,
 		Email:     users.Email,
+		Role:      users.Role,
 		CreatedAt: userCreatedAt,
 		UpdatedAt: userUpdatedAt,
 	}, nil
@@ -32,11 +33,12 @@ func getUsersParamsToPG(params domain.GetUsersParams) userstore.GetUsersParams {
 	}
 }
 
-// toPgCreateUserParams converts CreateUserParams to gen.CreateUserParams
+// createUserParamsToPG converts CreateUserParams to userstore.CreateUserParams
 func createUserParamsToPG(params domain.CreateUserParams) userstore.CreateUserParams {
 	return userstore.CreateUserParams{
 		Name:  params.Name,
 		Email: params.Email,
+		Role:  params.Role,
 	}
 }
 
@@ -51,6 +53,20 @@ func updateUserParamsToPG(input domain.UpdateUserParams) (userstore.UpdateUserPa
 		ID:    pgId,
 		Name:  input.Name,
 		Email: input.Email,
+	}
+	return userUpdate, nil
+}
+
+func updateRoleparamsToPG(input domain.UpdateUserRoleParams) (userstore.UpdateUserRoleParams, error) {
+	//ToPgUUID converts a UUID to a pgtype.UUID
+	pgId, err := common.ToPgUUID(input.ID)
+	if err != nil {
+		return userstore.UpdateUserRoleParams{}, fmt.Errorf("failed to convert UUID: %w", err)
+	}
+
+	userUpdate := userstore.UpdateUserRoleParams{
+		ID:   pgId,
+		Role: input.Role,
 	}
 	return userUpdate, nil
 }
