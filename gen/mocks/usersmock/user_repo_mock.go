@@ -32,11 +32,17 @@ var _ domain.Repository = &RepositoryMock{}
 //			GetUserByIDFunc: func(ctx context.Context, id uuid.UUID) (domain.User, error) {
 //				panic("mock out the GetUserByID method")
 //			},
+//			GetUserRoleByIDFunc: func(ctx context.Context, id uuid.UUID) (string, error) {
+//				panic("mock out the GetUserRoleByID method")
+//			},
 //			GetUsersFunc: func(ctx context.Context, params domain.GetUsersParams) ([]domain.User, error) {
 //				panic("mock out the GetUsers method")
 //			},
 //			UpdateUserFunc: func(ctx context.Context, updateUserparams domain.UpdateUserParams) (domain.User, error) {
 //				panic("mock out the UpdateUser method")
+//			},
+//			UpdateUserRoleFunc: func(ctx context.Context, params domain.UpdateUserRoleParams) (domain.User, error) {
+//				panic("mock out the UpdateUserRole method")
 //			},
 //		}
 //
@@ -57,11 +63,17 @@ type RepositoryMock struct {
 	// GetUserByIDFunc mocks the GetUserByID method.
 	GetUserByIDFunc func(ctx context.Context, id uuid.UUID) (domain.User, error)
 
+	// GetUserRoleByIDFunc mocks the GetUserRoleByID method.
+	GetUserRoleByIDFunc func(ctx context.Context, id uuid.UUID) (string, error)
+
 	// GetUsersFunc mocks the GetUsers method.
 	GetUsersFunc func(ctx context.Context, params domain.GetUsersParams) ([]domain.User, error)
 
 	// UpdateUserFunc mocks the UpdateUser method.
 	UpdateUserFunc func(ctx context.Context, updateUserparams domain.UpdateUserParams) (domain.User, error)
+
+	// UpdateUserRoleFunc mocks the UpdateUserRole method.
+	UpdateUserRoleFunc func(ctx context.Context, params domain.UpdateUserRoleParams) (domain.User, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -93,6 +105,13 @@ type RepositoryMock struct {
 			// ID is the id argument value.
 			ID uuid.UUID
 		}
+		// GetUserRoleByID holds details about calls to the GetUserRoleByID method.
+		GetUserRoleByID []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// ID is the id argument value.
+			ID uuid.UUID
+		}
 		// GetUsers holds details about calls to the GetUsers method.
 		GetUsers []struct {
 			// Ctx is the ctx argument value.
@@ -107,13 +126,22 @@ type RepositoryMock struct {
 			// UpdateUserparams is the updateUserparams argument value.
 			UpdateUserparams domain.UpdateUserParams
 		}
+		// UpdateUserRole holds details about calls to the UpdateUserRole method.
+		UpdateUserRole []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Params is the params argument value.
+			Params domain.UpdateUserRoleParams
+		}
 	}
-	lockCreateUser     sync.RWMutex
-	lockDeleteUser     sync.RWMutex
-	lockGetUserByEmail sync.RWMutex
-	lockGetUserByID    sync.RWMutex
-	lockGetUsers       sync.RWMutex
-	lockUpdateUser     sync.RWMutex
+	lockCreateUser      sync.RWMutex
+	lockDeleteUser      sync.RWMutex
+	lockGetUserByEmail  sync.RWMutex
+	lockGetUserByID     sync.RWMutex
+	lockGetUserRoleByID sync.RWMutex
+	lockGetUsers        sync.RWMutex
+	lockUpdateUser      sync.RWMutex
+	lockUpdateUserRole  sync.RWMutex
 }
 
 // CreateUser calls CreateUserFunc.
@@ -260,6 +288,42 @@ func (mock *RepositoryMock) GetUserByIDCalls() []struct {
 	return calls
 }
 
+// GetUserRoleByID calls GetUserRoleByIDFunc.
+func (mock *RepositoryMock) GetUserRoleByID(ctx context.Context, id uuid.UUID) (string, error) {
+	if mock.GetUserRoleByIDFunc == nil {
+		panic("RepositoryMock.GetUserRoleByIDFunc: method is nil but Repository.GetUserRoleByID was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		ID  uuid.UUID
+	}{
+		Ctx: ctx,
+		ID:  id,
+	}
+	mock.lockGetUserRoleByID.Lock()
+	mock.calls.GetUserRoleByID = append(mock.calls.GetUserRoleByID, callInfo)
+	mock.lockGetUserRoleByID.Unlock()
+	return mock.GetUserRoleByIDFunc(ctx, id)
+}
+
+// GetUserRoleByIDCalls gets all the calls that were made to GetUserRoleByID.
+// Check the length with:
+//
+//	len(mockedRepository.GetUserRoleByIDCalls())
+func (mock *RepositoryMock) GetUserRoleByIDCalls() []struct {
+	Ctx context.Context
+	ID  uuid.UUID
+} {
+	var calls []struct {
+		Ctx context.Context
+		ID  uuid.UUID
+	}
+	mock.lockGetUserRoleByID.RLock()
+	calls = mock.calls.GetUserRoleByID
+	mock.lockGetUserRoleByID.RUnlock()
+	return calls
+}
+
 // GetUsers calls GetUsersFunc.
 func (mock *RepositoryMock) GetUsers(ctx context.Context, params domain.GetUsersParams) ([]domain.User, error) {
 	if mock.GetUsersFunc == nil {
@@ -329,5 +393,41 @@ func (mock *RepositoryMock) UpdateUserCalls() []struct {
 	mock.lockUpdateUser.RLock()
 	calls = mock.calls.UpdateUser
 	mock.lockUpdateUser.RUnlock()
+	return calls
+}
+
+// UpdateUserRole calls UpdateUserRoleFunc.
+func (mock *RepositoryMock) UpdateUserRole(ctx context.Context, params domain.UpdateUserRoleParams) (domain.User, error) {
+	if mock.UpdateUserRoleFunc == nil {
+		panic("RepositoryMock.UpdateUserRoleFunc: method is nil but Repository.UpdateUserRole was just called")
+	}
+	callInfo := struct {
+		Ctx    context.Context
+		Params domain.UpdateUserRoleParams
+	}{
+		Ctx:    ctx,
+		Params: params,
+	}
+	mock.lockUpdateUserRole.Lock()
+	mock.calls.UpdateUserRole = append(mock.calls.UpdateUserRole, callInfo)
+	mock.lockUpdateUserRole.Unlock()
+	return mock.UpdateUserRoleFunc(ctx, params)
+}
+
+// UpdateUserRoleCalls gets all the calls that were made to UpdateUserRole.
+// Check the length with:
+//
+//	len(mockedRepository.UpdateUserRoleCalls())
+func (mock *RepositoryMock) UpdateUserRoleCalls() []struct {
+	Ctx    context.Context
+	Params domain.UpdateUserRoleParams
+} {
+	var calls []struct {
+		Ctx    context.Context
+		Params domain.UpdateUserRoleParams
+	}
+	mock.lockUpdateUserRole.RLock()
+	calls = mock.calls.UpdateUserRole
+	mock.lockUpdateUserRole.RUnlock()
 	return calls
 }
