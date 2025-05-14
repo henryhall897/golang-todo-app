@@ -1,12 +1,9 @@
-//go:build unit
-
 package repository
 
 import (
 	"context"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/zap"
 
@@ -79,7 +76,6 @@ func (a *AuthTestSuite) TestCreateAuthIdentity() {
 		a.Equal(authParams.AuthID, authIdentity.AuthID)
 		a.Equal(authParams.Provider, authIdentity.Provider)
 		a.Equal(authParams.UserID, authIdentity.UserID)
-		a.Equal(authParams.Role, authIdentity.Role)
 		a.NotNil(authIdentity.CreatedAt)
 		a.NotNil(authIdentity.UpdatedAt)
 	})
@@ -123,7 +119,6 @@ func (a *AuthTestSuite) TestGetAuthIdentityByAuthID() {
 		a.Equal(created.AuthID, result.AuthID)
 		a.Equal(created.Provider, result.Provider)
 		a.Equal(created.UserID, result.UserID)
-		a.Equal(created.Role, result.Role)
 	})
 
 	t.Run("Return error if auth ID does not exist", func(t *testing.T) {
@@ -136,90 +131,51 @@ func (a *AuthTestSuite) TestGetAuthIdentityByAuthID() {
 	})
 }
 
-// TestGetAuthIdentityByUserID tests the GetAuthIdentityByUserID method.
-func (a *AuthTestSuite) TestGetAuthIdentityByUserID() {
+// TestGetAuthIdentitiesByUserID tests the GetAuthIdentitiesByUserID method.
+func (a *AuthTestSuite) TestGetAuthIdentitiesByUserID() {
 	ctx := a.ctx
 	t := a.T()
 
-	// Generate and insert one mock user
-	mockUsers := usertestutils.GenerateMockUsers(1)
+	// Generate and insert two mock users
+	mockUsers := usertestutils.GenerateMockUsers(2)
+	userWithAuths := mockUsers[0]
+	userWithoutAuths := mockUsers[1]
 	testutils.InsertMockUsersIntoDB(t, a.pgt.DB(), ctx, mockUsers)
 
-	// Generate auth identity params for the mock user
-	mockAuthParams := testutils.GenerateMockAuthParams(mockUsers)
-	authParams := mockAuthParams[0]
+	// Generate multiple auth identities for userWithAuths
+	authIdentities := testutils.GenerateMockAuthIdentitiesForUser(userWithAuths, 2)
 
-	t.Run("Retrieve existing auth identity by UserID", func(t *testing.T) {
-		// Create auth identity
-		created, err := a.repository.CreateAuthIdentity(ctx, authParams)
-		a.Require().NoError(err)
+	t.Run("Retrieve all auth identities by UserID", func(t *testing.T) {
+		expected := make(map[string]domain.AuthIdentity)
 
-		// Act
-		result, err := a.repository.GetAuthIdentityByUserID(ctx, authParams.UserID)
-
-		// Assert
-		a.Require().NoError(err)
-		a.Equal(created.AuthID, result.AuthID)
-		a.Equal(created.Provider, result.Provider)
-		a.Equal(created.UserID, result.UserID)
-		a.Equal(created.Role, result.Role)
-	})
-
-	t.Run("Return error if user ID does not exist", func(t *testing.T) {
-		randomUserID := uuid.New()
-
-		_, err := a.repository.GetAuthIdentityByUserID(ctx, randomUserID)
-
-		a.Require().Error(err)
-		a.ErrorIs(err, common.ErrNotFound)
-	})
-}
-
-// TestUpdateAuthIdentityRole tests the UpdateAuthIdentityRole method.
-func (a *AuthTestSuite) TestUpdateAuthIdentityRole() {
-	ctx := a.ctx
-	t := a.T()
-
-	// Generate and insert one mock user
-	mockUsers := usertestutils.GenerateMockUsers(1)
-	testutils.InsertMockUsersIntoDB(t, a.pgt.DB(), ctx, mockUsers)
-
-	// Generate auth identity params for the mock user
-	mockAuthParams := testutils.GenerateMockAuthParams(mockUsers)
-	authParams := mockAuthParams[0]
-
-	t.Run("Update role for existing auth identity", func(t *testing.T) {
-		// Create auth identity
-		created, err := a.repository.CreateAuthIdentity(ctx, authParams)
-		a.Require().NoError(err)
-
-		// Prepare update params
-		updateParams := domain.UpdateAuthIdentityParams{
-			AuthID: created.AuthID,
-			Role:   "admin", // New role
+		for _, auth := range authIdentities {
+			created, err := a.repository.CreateAuthIdentity(ctx, domain.CreateAuthIdentityParams{
+				AuthID:   auth.AuthID,
+				Provider: auth.Provider,
+				UserID:   auth.UserID,
+			})
+			a.Require().NoError(err)
+			expected[created.AuthID] = created
 		}
 
-		// Act
-		updated, err := a.repository.UpdateAuthIdentityRole(ctx, updateParams)
+		results, err := a.repository.GetAuthIdentitiesByUserID(ctx, userWithAuths.ID)
 
-		// Assert
 		a.Require().NoError(err)
-		a.Equal(created.AuthID, updated.AuthID)
-		a.Equal(created.Provider, updated.Provider)
-		a.Equal(created.UserID, updated.UserID)
-		a.Equal(updateParams.Role, updated.Role) // Role should be updated
+		a.Len(results, len(authIdentities))
+
+		for _, r := range results {
+			e, ok := expected[r.AuthID]
+			a.True(ok, "unexpected auth identity: %s", r.AuthID)
+			a.Equal(e.Provider, r.Provider)
+			a.Equal(e.UserID, r.UserID)
+		}
 	})
 
-	t.Run("Return error if auth ID does not exist", func(t *testing.T) {
-		updateParams := domain.UpdateAuthIdentityParams{
-			AuthID: "auth0|nonexistent123",
-			Role:   "admin",
-		}
+	t.Run("Return empty slice if user has no auth identities", func(t *testing.T) {
+		results, err := a.repository.GetAuthIdentitiesByUserID(ctx, userWithoutAuths.ID)
 
-		_, err := a.repository.UpdateAuthIdentityRole(ctx, updateParams)
-
-		a.Require().Error(err)
-		a.ErrorIs(err, common.ErrNotFound)
+		a.Require().NoError(err)
+		a.Empty(results)
 	})
 }
 

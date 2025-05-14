@@ -17,15 +17,12 @@ func pgToAuthIdentity(pg authstore.AuthIdentity) (domain.AuthIdentity, error) {
 	}
 
 	createdAt := common.FromPgTimestamp(pg.CreatedAt)
-	updatedAt := common.FromPgTimestamp(pg.UpdatedAt)
 
 	return domain.AuthIdentity{
 		AuthID:    pg.AuthID,
 		Provider:  pg.Provider,
 		UserID:    userID,
-		Role:      pg.Role,
 		CreatedAt: createdAt,
-		UpdatedAt: updatedAt,
 	}, nil
 }
 
@@ -35,14 +32,17 @@ func createAuthIdentityParamsToPG(params domain.CreateAuthIdentityParams) authst
 		AuthID:   params.AuthID,
 		Provider: params.Provider,
 		UserID:   pgtype.UUID{Bytes: params.UserID, Valid: true},
-		Role:     params.Role,
 	}
 }
 
-// updateAuthIdentityParamsToPG converts a domain.UpdateAuthIdentityParams to authstore.UpdateAuthIdentityParams
-func updateAuthIdentityParamsToPG(params domain.UpdateAuthIdentityParams) authstore.UpdateAuthIdentityRoleParams {
-	return authstore.UpdateAuthIdentityRoleParams{
-		AuthID: params.AuthID,
-		Role:   params.Role,
+func pgToAuthIdentitiesSlice(auths []authstore.AuthIdentity) ([]domain.AuthIdentity, error) {
+	results := make([]domain.AuthIdentity, 0, len(auths))
+	for _, a := range auths {
+		converted, err := pgToAuthIdentity(a)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert auth identity: %w", err)
+		}
+		results = append(results, converted)
 	}
+	return results, nil
 }

@@ -69,45 +69,28 @@ func (r *repository) GetAuthIdentityByAuthID(ctx context.Context, authID string)
 }
 
 // GetAuthIdentityByUserID retrieves an auth identity by its user ID.
-func (r *repository) GetAuthIdentityByUserID(ctx context.Context, userID uuid.UUID) (domain.AuthIdentity, error) {
+func (r *repository) GetAuthIdentitiesByUserID(ctx context.Context, userID uuid.UUID) ([]domain.AuthIdentity, error) {
 	// Convert uuid.UUID to pgtype.UUID (skip error check since it's already validated)
 	pgUUID, err := common.ToPgUUID(userID)
 	if err != nil {
-		return domain.AuthIdentity{}, fmt.Errorf("invalid user ID: %w", common.ErrInternalServerError)
+		return []domain.AuthIdentity{}, fmt.Errorf("invalid user ID: %w", common.ErrInternalServerError)
 	}
 
 	// Execute the query to get the auth identity by user ID
-	identity, err := r.query.GetAuthIdentityByUserID(ctx, pgUUID)
+	identities, err := r.query.GetAuthIdentitiesByUserID(ctx, pgUUID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.AuthIdentity{}, fmt.Errorf("auth identity for user %s: %w", userID, common.ErrNotFound)
+		return []domain.AuthIdentity{}, fmt.Errorf("auth identity for user %s: %w", userID, common.ErrNotFound)
 	} else if err != nil {
-		return domain.AuthIdentity{}, fmt.Errorf("auth identity for user %s: %w", userID, common.ErrInternalServerError)
+		return []domain.AuthIdentity{}, fmt.Errorf("auth identity for user %s: %w", userID, common.ErrInternalServerError)
 	}
 
 	// Convert to domain model
-	result, err := pgToAuthIdentity(identity)
+	result, err := pgToAuthIdentitiesSlice(identities)
 	if err != nil {
-		return domain.AuthIdentity{}, err
+		return []domain.AuthIdentity{}, err
 	}
 
 	return result, nil
-}
-
-// UpdateAuthIdentityRole updates the role for a given auth identity.
-func (r *repository) UpdateAuthIdentityRole(ctx context.Context, params domain.UpdateAuthIdentityParams) (domain.AuthIdentity, error) {
-	// Convert the UpdateAuthIdentityParams to UpdateAuthIdentityRoleParams
-	pgParams := updateAuthIdentityParamsToPG(params)
-	result, err := r.query.UpdateAuthIdentityRole(ctx, pgParams)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.AuthIdentity{}, fmt.Errorf("auth identity %s: %w", params.AuthID, common.ErrNotFound)
-	} else if err != nil {
-		return domain.AuthIdentity{}, fmt.Errorf("auth identity %s: %w", params.AuthID, common.ErrInternalServerError)
-	}
-	newAuthIdentity, err := pgToAuthIdentity(result)
-	if err != nil {
-		return domain.AuthIdentity{}, fmt.Errorf("failed to transform auth identity: %w", err)
-	}
-	return newAuthIdentity, nil
 }
 
 // DeleteAuthIdentityByAuthID deletes an auth identity by its AuthID and verifies it existed.
