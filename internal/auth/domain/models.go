@@ -32,3 +32,8 @@ type AuthLoginParams struct {
 	Email    string `json:"email"`
 	Name     string `json:"name"`
 }
+
+type TokenInfo struct {
+	UserID uuid.UUID
+	Role   string
+}

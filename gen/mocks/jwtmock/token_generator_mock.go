@@ -5,7 +5,6 @@ package jwtmock
 
 import (
 	"context"
-	udomain "github.com/henryhall897/golang-todo-app/internal/users/domain"
 	"github.com/henryhall897/golang-todo-app/pkg/jwt/domain"
 	"sync"
 )
@@ -20,11 +19,11 @@ var _ domain.TokenGenerator = &TokenGeneratorMock{}
 //
 //		// make and configure a mocked domain.TokenGenerator
 //		mockedTokenGenerator := &TokenGeneratorMock{
-//			GenerateTokenFunc: func(ctx context.Context, user udomain.User) (string, error) {
-//				panic("mock out the GenerateToken method")
+//			GenFunc: func(ctx context.Context, user domain.Payload) (string, error) {
+//				panic("mock out the Gen method")
 //			},
-//			ParseTokenFunc: func(ctx context.Context, tokenString string) (domain.TokenClaims, error) {
-//				panic("mock out the ParseToken method")
+//			ParseFunc: func(ctx context.Context, tokenString string) (domain.Claims, error) {
+//				panic("mock out the Parse method")
 //			},
 //		}
 //
@@ -33,73 +32,73 @@ var _ domain.TokenGenerator = &TokenGeneratorMock{}
 //
 //	}
 type TokenGeneratorMock struct {
-	// GenerateTokenFunc mocks the GenerateToken method.
-	GenerateTokenFunc func(ctx context.Context, user udomain.User) (string, error)
+	// GenFunc mocks the Gen method.
+	GenFunc func(ctx context.Context, user domain.Payload) (string, error)
 
-	// ParseTokenFunc mocks the ParseToken method.
-	ParseTokenFunc func(ctx context.Context, tokenString string) (domain.TokenClaims, error)
+	// ParseFunc mocks the Parse method.
+	ParseFunc func(ctx context.Context, tokenString string) (domain.Claims, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
-		// GenerateToken holds details about calls to the GenerateToken method.
-		GenerateToken []struct {
+		// Gen holds details about calls to the Gen method.
+		Gen []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// User is the user argument value.
-			User udomain.User
+			User domain.Payload
 		}
-		// ParseToken holds details about calls to the ParseToken method.
-		ParseToken []struct {
+		// Parse holds details about calls to the Parse method.
+		Parse []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// TokenString is the tokenString argument value.
 			TokenString string
 		}
 	}
-	lockGenerateToken sync.RWMutex
-	lockParseToken    sync.RWMutex
+	lockGen   sync.RWMutex
+	lockParse sync.RWMutex
 }
 
-// GenerateToken calls GenerateTokenFunc.
-func (mock *TokenGeneratorMock) GenerateToken(ctx context.Context, user udomain.User) (string, error) {
-	if mock.GenerateTokenFunc == nil {
-		panic("TokenGeneratorMock.GenerateTokenFunc: method is nil but TokenGenerator.GenerateToken was just called")
+// Gen calls GenFunc.
+func (mock *TokenGeneratorMock) Gen(ctx context.Context, user domain.Payload) (string, error) {
+	if mock.GenFunc == nil {
+		panic("TokenGeneratorMock.GenFunc: method is nil but TokenGenerator.Gen was just called")
 	}
 	callInfo := struct {
 		Ctx  context.Context
-		User udomain.User
+		User domain.Payload
 	}{
 		Ctx:  ctx,
 		User: user,
 	}
-	mock.lockGenerateToken.Lock()
-	mock.calls.GenerateToken = append(mock.calls.GenerateToken, callInfo)
-	mock.lockGenerateToken.Unlock()
-	return mock.GenerateTokenFunc(ctx, user)
+	mock.lockGen.Lock()
+	mock.calls.Gen = append(mock.calls.Gen, callInfo)
+	mock.lockGen.Unlock()
+	return mock.GenFunc(ctx, user)
 }
 
-// GenerateTokenCalls gets all the calls that were made to GenerateToken.
+// GenCalls gets all the calls that were made to Gen.
 // Check the length with:
 //
-//	len(mockedTokenGenerator.GenerateTokenCalls())
-func (mock *TokenGeneratorMock) GenerateTokenCalls() []struct {
+//	len(mockedTokenGenerator.GenCalls())
+func (mock *TokenGeneratorMock) GenCalls() []struct {
 	Ctx  context.Context
-	User udomain.User
+	User domain.Payload
 } {
 	var calls []struct {
 		Ctx  context.Context
-		User udomain.User
+		User domain.Payload
 	}
-	mock.lockGenerateToken.RLock()
-	calls = mock.calls.GenerateToken
-	mock.lockGenerateToken.RUnlock()
+	mock.lockGen.RLock()
+	calls = mock.calls.Gen
+	mock.lockGen.RUnlock()
 	return calls
 }
 
-// ParseToken calls ParseTokenFunc.
-func (mock *TokenGeneratorMock) ParseToken(ctx context.Context, tokenString string) (domain.TokenClaims, error) {
-	if mock.ParseTokenFunc == nil {
-		panic("TokenGeneratorMock.ParseTokenFunc: method is nil but TokenGenerator.ParseToken was just called")
+// Parse calls ParseFunc.
+func (mock *TokenGeneratorMock) Parse(ctx context.Context, tokenString string) (domain.Claims, error) {
+	if mock.ParseFunc == nil {
+		panic("TokenGeneratorMock.ParseFunc: method is nil but TokenGenerator.Parse was just called")
 	}
 	callInfo := struct {
 		Ctx         context.Context
@@ -108,17 +107,17 @@ func (mock *TokenGeneratorMock) ParseToken(ctx context.Context, tokenString stri
 		Ctx:         ctx,
 		TokenString: tokenString,
 	}
-	mock.lockParseToken.Lock()
-	mock.calls.ParseToken = append(mock.calls.ParseToken, callInfo)
-	mock.lockParseToken.Unlock()
-	return mock.ParseTokenFunc(ctx, tokenString)
+	mock.lockParse.Lock()
+	mock.calls.Parse = append(mock.calls.Parse, callInfo)
+	mock.lockParse.Unlock()
+	return mock.ParseFunc(ctx, tokenString)
 }
 
-// ParseTokenCalls gets all the calls that were made to ParseToken.
+// ParseCalls gets all the calls that were made to Parse.
 // Check the length with:
 //
-//	len(mockedTokenGenerator.ParseTokenCalls())
-func (mock *TokenGeneratorMock) ParseTokenCalls() []struct {
+//	len(mockedTokenGenerator.ParseCalls())
+func (mock *TokenGeneratorMock) ParseCalls() []struct {
 	Ctx         context.Context
 	TokenString string
 } {
@@ -126,8 +125,8 @@ func (mock *TokenGeneratorMock) ParseTokenCalls() []struct {
 		Ctx         context.Context
 		TokenString string
 	}
-	mock.lockParseToken.RLock()
-	calls = mock.calls.ParseToken
-	mock.lockParseToken.RUnlock()
+	mock.lockParse.RLock()
+	calls = mock.calls.Parse
+	mock.lockParse.RUnlock()
 	return calls
 }
